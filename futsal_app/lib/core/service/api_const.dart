@@ -27,6 +27,9 @@ class ApiConst {
   // bookings
   static const String bookings = 'Booking';
 
+  // payment
+  static const String initiatePayment = 'PaymentGateway/khalti/initiate';
+
   //reviews
   static const String reviews = 'Reviews'; //get and post reviews
   static String groundReviews(String groundId) => 'Reviews/Ground/$groundId';

@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:ui/core/simple_theme.dart';
 import '../../core/dimension.dart';
 import '../../core/service/notification_service.dart';
+import '../../core/service/payment_service.dart';
 import 'data/repository/booking_repository.dart';
 import 'data/model/booking.dart';
 
@@ -197,6 +198,8 @@ class _BookingCard extends StatefulWidget {
 
 class _BookingCardState extends State<_BookingCard> {
   final _repo = BookingRepository();
+  final _paymentService = PaymentService();
+  bool _isProcessingPayment = false;
 
   String _prettyDate(DateTime d) {
     const months = [
@@ -339,6 +342,52 @@ class _BookingCardState extends State<_BookingCard> {
               ),
               if (widget.isUpcoming) ...[
                 Spacer(),
+                // Show Pay button if not fully paid
+                if (!widget.booking.isPaid &&
+                    widget.booking.remainingAmount > 0) ...[
+                  ElevatedButton(
+                    onPressed: _isProcessingPayment
+                        ? null
+                        : () => _handlePayNow(context),
+                    style: ButtonStyle(
+                      backgroundColor: WidgetStateProperty.all(
+                        Theme.of(context).colorScheme.primary,
+                      ),
+                      shadowColor: WidgetStateProperty.all(Colors.transparent),
+                      padding: WidgetStateProperty.all(
+                        EdgeInsets.symmetric(
+                          horizontal: Dimension.width(12),
+                          vertical: Dimension.height(0),
+                        ),
+                      ),
+                      shape: WidgetStateProperty.all(
+                        RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(
+                            Dimension.width(8),
+                          ),
+                        ),
+                      ),
+                    ),
+                    child: _isProcessingPayment
+                        ? SizedBox(
+                            width: Dimension.width(14),
+                            height: Dimension.width(14),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : Text(
+                            'Pay',
+                            style: TextStyle(
+                              fontSize: Dimension.font(14),
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                  ),
+                  SizedBox(width: Dimension.width(8)),
+                ],
                 ElevatedButton(
                   onPressed: () => _showCancelDialog(context, widget.booking),
                   style: ButtonStyle(
@@ -375,6 +424,57 @@ class _BookingCardState extends State<_BookingCard> {
         ],
       ),
     );
+  }
+
+  Future<void> _handlePayNow(BuildContext context) async {
+    setState(() => _isProcessingPayment = true);
+
+    try {
+      final response = await _paymentService.initiatePayment(
+        bookingId: widget.booking.id,
+        returnUrl: 'http://144.126.252.228:8080/PaymentGateway/khalti/callback',
+        websiteUrl: 'http://144.126.252.228:8080',
+      );
+
+      if (!mounted) return;
+
+      if (response.success && response.paymentUrl.isNotEmpty) {
+        final launched = await _paymentService.openPaymentUrl(
+          response.paymentUrl,
+        );
+
+        if (launched) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Opening payment page...'),
+              backgroundColor: Colors.green,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to open payment page'),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      } else {
+        throw Exception(response.message);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Payment failed: ${e.toString()}'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isProcessingPayment = false);
+    }
   }
 
   void _showCancelDialog(BuildContext context, Booking booking) {

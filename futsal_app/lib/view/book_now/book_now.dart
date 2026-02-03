@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../core/dimension.dart';
 import '../../core/service/notification_service.dart';
+import '../../core/service/payment_service.dart';
 import '../bookings/data/repository/booking_repository.dart';
 import '../bookings/bookings.dart';
 import '../profile/bloc/profile_bloc.dart';
@@ -19,6 +20,7 @@ class BookNow extends StatefulWidget {
 
 class _BookNowState extends State<BookNow> {
   final _bookingRepo = BookingRepository();
+  final _paymentService = PaymentService();
   int _selectedDateIndex = 0;
   String? _selectedTimeSlot;
   bool _showConfirmation = false;
@@ -137,7 +139,7 @@ class _BookNowState extends State<BookNow> {
       final startTime = _convertTo24HourFormat(times[0]);
       final endTime = _convertTo24HourFormat(times[1]);
 
-      await _bookingRepo.createBooking(
+      final bookingId = await _bookingRepo.createBooking(
         userId: userId,
         groundId: groundId is int
             ? groundId
@@ -156,19 +158,8 @@ class _BookNowState extends State<BookNow> {
         timeSlot: _selectedTimeSlot!,
       );
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Booking confirmed successfully!'),
-          backgroundColor: Colors.green,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (_) => const BookingsScreen()),
-        (route) => route.isFirst,
-      );
+      // Show payment option dialog
+      _showPaymentOptionDialog(bookingId);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -178,8 +169,170 @@ class _BookNowState extends State<BookNow> {
           behavior: SnackBarBehavior.floating,
         ),
       );
-    } finally {
-      if (mounted) setState(() => _isBooking = false);
+      setState(() => _isBooking = false);
+    }
+  }
+
+  void _showPaymentOptionDialog(int bookingId) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(Dimension.width(16)),
+        ),
+        title: Row(
+          children: [
+            Icon(
+              Icons.check_circle,
+              color: Colors.green,
+              size: Dimension.width(28),
+            ),
+            SizedBox(width: Dimension.width(8)),
+            Text(
+              'Booking Confirmed!',
+              style: TextStyle(
+                fontSize: Dimension.font(18),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Your booking has been confirmed successfully.',
+              style: TextStyle(
+                fontSize: Dimension.font(14),
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+            SizedBox(height: Dimension.height(16)),
+            Text(
+              'Would you like to complete the payment now or pay later?',
+              style: TextStyle(
+                fontSize: Dimension.font(14),
+                fontWeight: FontWeight.w500,
+                color: Colors.grey[700],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              setState(() => _isBooking = false);
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const BookingsScreen()),
+                (route) => route.isFirst,
+              );
+            },
+            child: Text(
+              'Pay Later',
+              style: TextStyle(
+                fontSize: Dimension.font(14),
+                fontWeight: FontWeight.w600,
+                color: Colors.grey[600],
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              _initiatePayment(bookingId);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(Dimension.width(8)),
+              ),
+            ),
+            child: Text(
+              'Pay Now',
+              style: TextStyle(
+                fontSize: Dimension.font(14),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _initiatePayment(int bookingId) async {
+    try {
+      // Show loading
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Initiating payment...'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+
+      final response = await _paymentService.initiatePayment(
+        bookingId: bookingId,
+        returnUrl: 'http://144.126.252.228:8080/PaymentGateway/khalti/callback',
+        websiteUrl: 'http://144.126.252.228:8080',
+      );
+
+      if (!mounted) return;
+
+      if (response.success && response.paymentUrl.isNotEmpty) {
+        // Open payment URL in browser
+        final launched = await _paymentService.openPaymentUrl(
+          response.paymentUrl,
+        );
+
+        if (launched) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Opening payment page...'),
+              backgroundColor: Colors.green,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to open payment page'),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+
+        setState(() => _isBooking = false);
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const BookingsScreen()),
+          (route) => route.isFirst,
+        );
+      } else {
+        throw Exception(response.message);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Payment initiation failed: ${e.toString()}'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      setState(() => _isBooking = false);
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const BookingsScreen()),
+        (route) => route.isFirst,
+      );
     }
   }
 

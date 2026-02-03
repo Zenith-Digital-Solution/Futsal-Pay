@@ -39,7 +39,7 @@ class BookingRepository {
   }
 
   /// Create a new booking
-  Future<void> createBooking({
+  Future<int> createBooking({
     required String userId,
     required int groundId,
     required DateTime bookingDate,
@@ -57,9 +57,23 @@ class BookingRepository {
 
       final res = await _api.post(ApiConst.bookings, data: bookingData);
 
+      print('🔵 Booking Response: ${res.data}');
+
       if (res.statusCode == 200 || res.statusCode == 201) {
-        // Booking successful - response format may vary
-        return;
+        // Extract booking ID from response
+        final responseData = res.data;
+        if (responseData is Map && responseData['id'] != null) {
+          final bookingId = responseData['id'] as int;
+          print('🟢 Booking ID from response: $bookingId');
+          return bookingId;
+        } else if (responseData is Map && responseData['bookingId'] != null) {
+          final bookingId = responseData['bookingId'] as int;
+          print('🟢 Booking ID from response: $bookingId');
+          return bookingId;
+        }
+        // If no ID in response, return 0 (will be handled gracefully)
+        print('🔴 WARNING: No booking ID found in response! Returning 0');
+        return 0;
       } else {
         throw Exception('Failed to create booking: ${res.statusCode}');
       }
