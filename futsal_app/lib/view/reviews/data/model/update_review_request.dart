@@ -1,11 +1,11 @@
-class ReviewRequest {
-  final int bookingId;
+class UpdateReviewRequest {
+  final int groundId;
   final int rating;
   final String? comment;
   final int? imageId;
 
-  ReviewRequest({
-    required this.bookingId,
+  UpdateReviewRequest({
+    required this.groundId,
     required this.rating,
     this.comment,
     this.imageId,
@@ -13,7 +13,7 @@ class ReviewRequest {
 
   Map<String, dynamic> toJson() {
     return {
-      'bookingId': bookingId,
+      'groundId': groundId,
       'rating': rating,
       'comment': comment,
       'imageId': imageId,

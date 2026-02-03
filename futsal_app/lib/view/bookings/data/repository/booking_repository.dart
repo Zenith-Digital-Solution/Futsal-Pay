@@ -75,4 +75,27 @@ class BookingRepository {
       throw Exception('Unexpected error: $e');
     }
   }
+
+  /// Cancel a booking
+  Future<void> cancelBooking(int bookingId) async {
+    try {
+      final res = await _api.patch('${ApiConst.bookings}/cancel/$bookingId');
+
+      if (res.statusCode == 200) {
+        return;
+      } else {
+        throw Exception('Failed to cancel booking: ${res.statusCode}');
+      }
+    } on DioException catch (e) {
+      if (e.response != null) {
+        throw Exception(
+          e.response?.data['message'] ?? 'Failed to cancel booking',
+        );
+      } else {
+        throw Exception('Network error: ${e.message}');
+      }
+    } catch (e) {
+      throw Exception('Unexpected error: $e');
+    }
+  }
 }

@@ -500,7 +500,7 @@ class _TrendingCard extends StatelessWidget {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => FutsalDetails(futsalData: court),
+            builder: (context) => FutsalDetails(futsalId: court['id'] as int),
           ),
         );
       },
@@ -628,7 +628,7 @@ class _CourtCard extends StatelessWidget {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => FutsalDetails(futsalData: court),
+            builder: (context) => FutsalDetails(futsalId: court['id'] as int),
           ),
         );
       },
@@ -763,7 +763,7 @@ class _GridCourtCard extends StatelessWidget {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => FutsalDetails(futsalData: court),
+            builder: (context) => FutsalDetails(futsalId: court['id'] as int),
           ),
         );
       },

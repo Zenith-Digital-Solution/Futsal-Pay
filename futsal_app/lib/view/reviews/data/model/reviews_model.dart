@@ -6,6 +6,8 @@ class ReviewsModel {
   int? reviewImageId;
   String? reviewImageUrl;
   int? groundId;
+  String? groundName;
+  String? groundImageUrl;
   int? rating;
   String? comment;
   String? createdAt;
@@ -18,6 +20,8 @@ class ReviewsModel {
     this.reviewImageId,
     this.reviewImageUrl,
     this.groundId,
+    this.groundName,
+    this.groundImageUrl,
     this.rating,
     this.comment,
     this.createdAt,
@@ -31,6 +35,8 @@ class ReviewsModel {
     reviewImageId = json['reviewImageId'];
     reviewImageUrl = json['reviewImageUrl'];
     groundId = json['groundId'];
+    groundName = json['groundName'];
+    groundImageUrl = json['groundImageUrl'];
     rating = json['rating'];
     comment = json['comment'];
     createdAt = json['createdAt'];
@@ -45,6 +51,8 @@ class ReviewsModel {
     data['reviewImageId'] = reviewImageId;
     data['reviewImageUrl'] = reviewImageUrl;
     data['groundId'] = groundId;
+    data['groundName'] = groundName;
+    data['groundImageUrl'] = groundImageUrl;
     data['rating'] = rating;
     data['comment'] = comment;
     data['createdAt'] = createdAt;

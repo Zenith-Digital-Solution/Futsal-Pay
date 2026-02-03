@@ -1,27 +1,36 @@
 import 'package:flutter/material.dart';
 import '../../../core/dimension.dart';
+import '../data/model/reviews_model.dart';
 
-class ReviewDialog extends StatefulWidget {
-  final int bookingId;
-  final String groundName;
-  final Function(int rating, String comment) onSubmit;
+class EditReviewDialog extends StatefulWidget {
+  final ReviewsModel review;
+  final Function(int groundId, int rating, String? comment, int? imageId)
+  onUpdate;
 
-  const ReviewDialog({
+  const EditReviewDialog({
     super.key,
-    required this.bookingId,
-    required this.groundName,
-    required this.onSubmit,
+    required this.review,
+    required this.onUpdate,
   });
 
   @override
-  State<ReviewDialog> createState() => _ReviewDialogState();
+  State<EditReviewDialog> createState() => _EditReviewDialogState();
 }
 
-class _ReviewDialogState extends State<ReviewDialog> {
-  int _rating = 0;
-  final _commentController = TextEditingController();
+class _EditReviewDialogState extends State<EditReviewDialog> {
+  late int _rating;
+  late final TextEditingController _commentController;
   final _formKey = GlobalKey<FormState>();
   bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _rating = widget.review.rating ?? 0;
+    _commentController = TextEditingController(
+      text: widget.review.comment ?? '',
+    );
+  }
 
   @override
   void dispose() {
@@ -53,7 +62,7 @@ class _ReviewDialogState extends State<ReviewDialog> {
                   children: [
                     Expanded(
                       child: Text(
-                        'Review ${widget.groundName}',
+                        'Edit Review',
                         style: TextStyle(
                           fontSize: Dimension.font(18),
                           fontWeight: FontWeight.w700,
@@ -70,6 +79,14 @@ class _ReviewDialogState extends State<ReviewDialog> {
                       constraints: BoxConstraints(),
                     ),
                   ],
+                ),
+                SizedBox(height: Dimension.height(8)),
+                Text(
+                  widget.review.groundName ?? 'Ground',
+                  style: TextStyle(
+                    fontSize: Dimension.font(14),
+                    color: Colors.grey[600],
+                  ),
                 ),
                 SizedBox(height: Dimension.height(16)),
                 Text(
@@ -112,7 +129,7 @@ class _ReviewDialogState extends State<ReviewDialog> {
                   ),
                 SizedBox(height: Dimension.height(16)),
                 Text(
-                  'Comment *',
+                  'Comment',
                   style: TextStyle(
                     fontSize: Dimension.font(14),
                     fontWeight: FontWeight.w600,
@@ -124,15 +141,6 @@ class _ReviewDialogState extends State<ReviewDialog> {
                   controller: _commentController,
                   maxLines: 4,
                   maxLength: 500,
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Please enter a comment';
-                    }
-                    if (value.trim().length < 10) {
-                      return 'Comment must be at least 10 characters';
-                    }
-                    return null;
-                  },
                   decoration: InputDecoration(
                     hintText: 'Share your experience...',
                     border: OutlineInputBorder(
@@ -193,7 +201,7 @@ class _ReviewDialogState extends State<ReviewDialog> {
                             ),
                           )
                         : Text(
-                            'Submit Review',
+                            'Update Review',
                             style: TextStyle(
                               fontSize: Dimension.font(16),
                               fontWeight: FontWeight.w600,
@@ -222,25 +230,21 @@ class _ReviewDialogState extends State<ReviewDialog> {
       return;
     }
 
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
-
     setState(() {
       _isSubmitting = true;
     });
 
     try {
-      await widget.onSubmit(_rating, _commentController.text.trim());
+      await widget.onUpdate(
+        widget.review.groundId!,
+        _rating,
+        _commentController.text.trim().isEmpty
+            ? null
+            : _commentController.text.trim(),
+        widget.review.reviewImageId, // Keep existing image
+      );
       if (mounted) {
         Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Review submitted successfully!'),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
       }
     } catch (e) {
       if (mounted) {
@@ -249,7 +253,7 @@ class _ReviewDialogState extends State<ReviewDialog> {
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to submit review: ${e.toString()}'),
+            content: Text('Failed to update review: ${e.toString()}'),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
           ),

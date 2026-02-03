@@ -5,7 +5,8 @@ class Booking {
   final DateTime bookingDate;
   final String startTime; // assuming HH:mm or full string from API
   final String endTime;
-  final int status; // 0=pending,1=confirmed,2=cancelled etc.
+  final int
+  status; // 0=pending, 1=confirmed, 2=upcoming, 3=cancelled, 4=completed
   final double totalAmount;
   final DateTime createdAt;
   final String groundName;

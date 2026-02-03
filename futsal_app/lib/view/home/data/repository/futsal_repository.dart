@@ -77,4 +77,29 @@ class FutsalRepository {
       throw ApiException('Failed to fetch favorite futsals: ${e.toString()}');
     }
   }
+
+  // Get futsal ground by ID
+  Future<FutsalModel> getFutsalById(int id) async {
+    try {
+      final response = await _apiService.get(
+        ApiConst.futsalById(id.toString()),
+      );
+
+      if (response.data is Map<String, dynamic>) {
+        return FutsalModel.fromJson(response.data as Map<String, dynamic>);
+      }
+
+      throw ApiException('Invalid response format');
+    } catch (e) {
+      throw ApiException('Failed to fetch futsal details: ${e.toString()}');
+    }
+  }
+}
+
+class ApiException implements Exception {
+  final String message;
+  ApiException(this.message);
+
+  @override
+  String toString() => message;
 }

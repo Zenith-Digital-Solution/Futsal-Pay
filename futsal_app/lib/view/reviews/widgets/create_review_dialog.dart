@@ -1,23 +1,32 @@
 import 'package:flutter/material.dart';
 import '../../../core/dimension.dart';
 
-class ReviewDialog extends StatefulWidget {
+class CreateReviewDialog extends StatefulWidget {
   final int bookingId;
+  final int groundId;
   final String groundName;
-  final Function(int rating, String comment) onSubmit;
+  final Function(
+    int bookingId,
+    int groundId,
+    int rating,
+    String? comment,
+    int? imageId,
+  )
+  onCreate;
 
-  const ReviewDialog({
+  const CreateReviewDialog({
     super.key,
     required this.bookingId,
+    required this.groundId,
     required this.groundName,
-    required this.onSubmit,
+    required this.onCreate,
   });
 
   @override
-  State<ReviewDialog> createState() => _ReviewDialogState();
+  State<CreateReviewDialog> createState() => _CreateReviewDialogState();
 }
 
-class _ReviewDialogState extends State<ReviewDialog> {
+class _CreateReviewDialogState extends State<CreateReviewDialog> {
   int _rating = 0;
   final _commentController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
@@ -112,7 +121,7 @@ class _ReviewDialogState extends State<ReviewDialog> {
                   ),
                 SizedBox(height: Dimension.height(16)),
                 Text(
-                  'Comment *',
+                  'Comment',
                   style: TextStyle(
                     fontSize: Dimension.font(14),
                     fontWeight: FontWeight.w600,
@@ -124,15 +133,6 @@ class _ReviewDialogState extends State<ReviewDialog> {
                   controller: _commentController,
                   maxLines: 4,
                   maxLength: 500,
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Please enter a comment';
-                    }
-                    if (value.trim().length < 10) {
-                      return 'Comment must be at least 10 characters';
-                    }
-                    return null;
-                  },
                   decoration: InputDecoration(
                     hintText: 'Share your experience...',
                     border: OutlineInputBorder(
@@ -222,25 +222,22 @@ class _ReviewDialogState extends State<ReviewDialog> {
       return;
     }
 
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
-
     setState(() {
       _isSubmitting = true;
     });
 
     try {
-      await widget.onSubmit(_rating, _commentController.text.trim());
+      await widget.onCreate(
+        widget.bookingId,
+        widget.groundId,
+        _rating,
+        _commentController.text.trim().isEmpty
+            ? null
+            : _commentController.text.trim(),
+        null, // imageId - can be added later if needed
+      );
       if (mounted) {
         Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Review submitted successfully!'),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
       }
     } catch (e) {
       if (mounted) {

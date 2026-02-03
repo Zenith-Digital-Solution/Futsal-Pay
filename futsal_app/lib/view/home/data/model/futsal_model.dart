@@ -19,6 +19,7 @@ class FutsalModel {
   final bool isFavorite;
   final double? distanceKm;
   final List<BookedTimeSlot> bookedTimeSlots;
+  final List<FutsalReview>? reviews;
 
   FutsalModel({
     required this.id,
@@ -41,6 +42,7 @@ class FutsalModel {
     required this.isFavorite,
     this.distanceKm,
     required this.bookedTimeSlots,
+    this.reviews,
   });
 
   factory FutsalModel.fromJson(Map<String, dynamic> json) {
@@ -71,6 +73,9 @@ class FutsalModel {
               ?.map((e) => BookedTimeSlot.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
+      reviews: (json['reviews'] as List<dynamic>?)
+          ?.map((e) => FutsalReview.fromJson(e as Map<String, dynamic>))
+          .toList(),
     );
   }
 
@@ -96,6 +101,7 @@ class FutsalModel {
       'isFavorite': isFavorite,
       'distanceKm': distanceKm,
       'bookedTimeSlots': bookedTimeSlots.map((e) => e.toJson()).toList(),
+      'reviews': reviews?.map((e) => e.toJson()).toList(),
     };
   }
 
@@ -158,6 +164,70 @@ class BookedTimeSlot {
       'bookingDate': bookingDate.toIso8601String(),
       'startTime': startTime,
       'endTime': endTime,
+    };
+  }
+}
+
+class FutsalReview {
+  final int id;
+  final String userId;
+  final String userName;
+  final int? userImageId;
+  final int? reviewImageId;
+  final String? reviewImageUrl;
+  final int groundId;
+  final String? groundName;
+  final String? groundImageUrl;
+  final int rating;
+  final String? comment;
+  final DateTime createdAt;
+
+  FutsalReview({
+    required this.id,
+    required this.userId,
+    required this.userName,
+    this.userImageId,
+    this.reviewImageId,
+    this.reviewImageUrl,
+    required this.groundId,
+    this.groundName,
+    this.groundImageUrl,
+    required this.rating,
+    this.comment,
+    required this.createdAt,
+  });
+
+  factory FutsalReview.fromJson(Map<String, dynamic> json) {
+    return FutsalReview(
+      id: json['id'] as int,
+      userId: json['userId'] as String,
+      userName: json['userName'] as String,
+      userImageId: json['userImageId'] as int?,
+      reviewImageId: json['reviewImageId'] as int?,
+      reviewImageUrl: json['reviewImageUrl'] as String?,
+      groundId: json['groundId'] as int,
+      groundName: json['groundName'] as String?,
+      groundImageUrl: json['groundImageUrl'] as String?,
+      rating: json['rating'] as int,
+      comment: json['comment'] as String?,
+      createdAt: DateTime.parse(json['createdAt'] as String),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'userId': userId,
+      'userName': userName,
+      'userImageId': userImageId,
+      'reviewImageId': reviewImageId,
+      'reviewImageUrl': reviewImageUrl,
+      'groundId': groundId,
+      'groundName': groundName,
+      'groundImageUrl': groundImageUrl,
+      'rating': rating,
+      'comment': comment,
+      'createdAt': createdAt.toIso8601String(),
     };
   }
 }

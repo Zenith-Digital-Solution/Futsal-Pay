@@ -10,6 +10,7 @@ class ApiConst {
 
   // futsal endpoints
   static const String futsal = 'FutsalGround';
+  static String futsalById(String id) => 'FutsalGround/$id';
   static const String trendingFutsal = 'FutsalGround/trending';
   static const String topReviewedFutsal = 'FutsalGround/top-reviewed';
   static const String getFavoritesFutsal =
@@ -29,4 +30,6 @@ class ApiConst {
   //reviews
   static const String reviews = 'Reviews'; //get and post reviews
   static String groundReviews(String groundId) => 'Reviews/Ground/$groundId';
+  static const String reviewsRemainingList = 'Reviews/Remaining/List';
+  static String reviewById(int id) => 'Reviews/$id'; // PUT and DELETE
 }

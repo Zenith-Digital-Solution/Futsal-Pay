@@ -224,7 +224,7 @@ class _SearchCourtCard extends StatelessWidget {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => FutsalDetails(futsalData: court),
+            builder: (context) => FutsalDetails(futsalId: court['id'] as int),
           ),
         );
       },
