@@ -6,6 +6,7 @@ import { z } from 'zod';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
+import { useAnalytics } from '@/hooks/use-analytics';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -42,6 +43,7 @@ type SignupFormData = z.infer<typeof signupSchema>;
 export function SignupForm() {
   const router = useRouter();
   const { signupAsync, isLoading, signupError } = useAuth();
+  const { track } = useAnalytics();
 
   const {
     register,
@@ -54,6 +56,7 @@ export function SignupForm() {
   const onSubmit = async (data: SignupFormData) => {
     try {
       await signupAsync(data);
+      track('user_signed_up', { method: 'email' });
       router.push('/dashboard');
     } catch {
       // error shown via signupError
@@ -142,13 +145,13 @@ export function SignupForm() {
           </div>
 
           <div className="grid grid-cols-3 gap-3 w-full">
-            <Button variant="outline" type="button" onClick={() => startOAuthLogin('google')}>
+            <Button variant="outline" type="button" onClick={() => { track('user_signed_up', { method: 'google' }); startOAuthLogin('google'); }}>
               Google
             </Button>
-            <Button variant="outline" type="button" onClick={() => startOAuthLogin('github')}>
+            <Button variant="outline" type="button" onClick={() => { track('user_signed_up', { method: 'github' }); startOAuthLogin('github'); }}>
               GitHub
             </Button>
-            <Button variant="outline" type="button" onClick={() => startOAuthLogin('facebook')}>
+            <Button variant="outline" type="button" onClick={() => { track('user_signed_up', { method: 'facebook' }); startOAuthLogin('facebook'); }}>
               Facebook
             </Button>
           </div>

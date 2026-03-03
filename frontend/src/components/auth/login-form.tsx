@@ -6,6 +6,7 @@ import { z } from 'zod';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
+import { useAnalytics } from '@/hooks/use-analytics';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -29,6 +30,7 @@ type LoginFormData = z.infer<typeof loginSchema>;
 export function LoginForm() {
   const router = useRouter();
   const { loginAsync, isLoading, loginError } = useAuth();
+  const { track } = useAnalytics();
 
   const {
     register,
@@ -45,6 +47,7 @@ export function LoginForm() {
         const otpResult = result as OTPLoginResponse;
         router.push(`/otp-verify?temp_token=${otpResult.temp_token}`);
       } else {
+        track('user_signed_in', { method: 'email' });
         router.push('/dashboard');
       }
     } catch {
@@ -108,13 +111,13 @@ export function LoginForm() {
           </div>
 
           <div className="grid grid-cols-3 gap-3 w-full">
-            <Button variant="outline" type="button" onClick={() => startOAuthLogin('google')}>
+            <Button variant="outline" type="button" onClick={() => { track('user_signed_in', { method: 'google' }); startOAuthLogin('google'); }}>
               Google
             </Button>
-            <Button variant="outline" type="button" onClick={() => startOAuthLogin('github')}>
+            <Button variant="outline" type="button" onClick={() => { track('user_signed_in', { method: 'github' }); startOAuthLogin('github'); }}>
               GitHub
             </Button>
-            <Button variant="outline" type="button" onClick={() => startOAuthLogin('facebook')}>
+            <Button variant="outline" type="button" onClick={() => { track('user_signed_in', { method: 'facebook' }); startOAuthLogin('facebook'); }}>
               Facebook
             </Button>
           </div>

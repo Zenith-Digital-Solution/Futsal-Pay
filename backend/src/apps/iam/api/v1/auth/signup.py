@@ -16,6 +16,7 @@ from src.apps.iam.schemas.user import UserCreate
 from src.apps.core.cache import RedisCache
 
 from src.apps.iam.utils.ip_access import revoke_tokens_for_ip, get_client_ip
+from src.apps.core.analytics import analytics
 
 router = APIRouter()
 limiter = Limiter(key_func=get_remote_address)
@@ -64,7 +65,22 @@ async def signup(
         db.add(new_user)
         db.add(user_profile)
         await db.commit()
-        
+
+        analytics.identify(
+            distinct_id=str(new_user.id),
+            properties={
+                "email": new_user.email,
+                "username": new_user.username,
+                "first_name": login_data.first_name or "",
+                "last_name": login_data.last_name or "",
+            },
+        )
+        analytics.track(
+            distinct_id=str(new_user.id),
+            event="user_signed_up",
+            properties={"method": "email"},
+        )
+
         # Invalidate users list cache
         await RedisCache.clear_pattern("users:list:*")
         

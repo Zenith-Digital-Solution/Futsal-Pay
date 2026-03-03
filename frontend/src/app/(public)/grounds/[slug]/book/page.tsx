@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { useAuthStore } from '@/store/auth-store';
+import { useAnalytics } from '@/hooks/use-analytics';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,6 +26,7 @@ export default function BookingPage({ params }: { params: { slug: string } }) {
   const searchParams = useSearchParams();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const _hasHydrated = useAuthStore((s) => s._hasHydrated);
+  const { track } = useAnalytics();
 
   const groundId = searchParams.get('ground_id');
   const slotStart = searchParams.get('slot_start') ?? '';
@@ -59,6 +61,13 @@ export default function BookingPage({ params }: { params: { slug: string } }) {
     setError('');
     setIsSubmitting(true);
 
+    track('booking_initiated', {
+      ground_id: ground.id,
+      date: date,
+      amount: estimatedPrice,
+      payment_method: paymentMethod,
+    });
+
     try {
       const { data: booking } = await apiClient.post<Booking>('/futsal/bookings', {
         ground_id: ground.id,
@@ -68,6 +77,12 @@ export default function BookingPage({ params }: { params: { slug: string } }) {
         team_name: teamName || undefined,
         notes: notes || undefined,
         ...(useLoyalty && { loyalty_points_to_redeem: 1 }),
+      });
+
+      track('payment_initiated', {
+        amount: estimatedPrice,
+        provider: paymentMethod as 'khalti' | 'esewa',
+        context: 'booking',
       });
 
       const { data: payment } = await apiClient.post('/payments/initiate', {
@@ -90,6 +105,11 @@ export default function BookingPage({ params }: { params: { slug: string } }) {
       } else {
         setError('Something went wrong. Please try again.');
       }
+      track('payment_failed', {
+        amount: estimatedPrice,
+        provider: paymentMethod,
+        error: `status_${(axiosErr?.response?.status ?? 'unknown')}`,
+      });
     } finally {
       setIsSubmitting(false);
     }

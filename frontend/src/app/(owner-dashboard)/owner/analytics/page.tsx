@@ -7,6 +7,10 @@ import { Skeleton } from '@/components/ui/skeleton';
 import {
   TrendingUp, Calendar, DollarSign, Users, BarChart2, Clock,
 } from 'lucide-react';
+import {
+  LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+} from 'recharts';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -36,6 +40,15 @@ function hourOf(timeStr: string): number {
   return parseInt(timeStr.split(':')[0], 10);
 }
 
+// Generate last N days as YYYY-MM-DD strings
+function lastNDays(n: number): string[] {
+  return Array.from({ length: n }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (n - 1 - i));
+    return d.toISOString().split('T')[0];
+  });
+}
+
 // ── Status badge ──────────────────────────────────────────────────────────────
 
 const STATUS_COLORS: Record<string, string> = {
@@ -45,6 +58,36 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: 'bg-red-100 text-red-600',
   no_show:   'bg-gray-100 text-gray-500',
 };
+
+const PIE_COLORS: Record<string, string> = {
+  confirmed: '#4ade80',
+  completed: '#60a5fa',
+  cancelled: '#f87171',
+  pending:   '#fbbf24',
+  no_show:   '#d1d5db',
+};
+
+// ── Custom tooltip ────────────────────────────────────────────────────────────
+
+function RevenueTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number }>; label?: string }) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg shadow-sm px-3 py-2 text-sm">
+      <p className="text-gray-500 mb-0.5">{label}</p>
+      <p className="font-semibold text-green-700">NPR {payload[0].value.toLocaleString()}</p>
+    </div>
+  );
+}
+
+function BookingsTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number }>; label?: string }) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg shadow-sm px-3 py-2 text-sm">
+      <p className="text-gray-500 mb-0.5">{label}</p>
+      <p className="font-semibold text-indigo-700">{payload[0].value} bookings</p>
+    </div>
+  );
+}
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
@@ -68,15 +111,32 @@ export default function OwnerAnalyticsPage() {
   const revenueWeek  = useMemo(() => revenueFor(bookings, weekStart, today), [bookings, weekStart, today]);
   const revenueMonth = useMemo(() => revenueFor(bookings, monStart, today), [bookings, monStart, today]);
 
-  // Status breakdown
+  // Status breakdown for pie chart
   const statusBreakdown = useMemo(() => {
     const counts: Record<string, number> = {};
     bookings.forEach((b) => { counts[b.status] = (counts[b.status] ?? 0) + 1; });
     return counts;
   }, [bookings]);
 
-  // Peak hours
-  const peakHours = useMemo(() => {
+  const pieData = useMemo(() =>
+    (['confirmed', 'completed', 'cancelled', 'pending', 'no_show'] as const)
+      .filter((s) => (statusBreakdown[s] ?? 0) > 0)
+      .map((s) => ({ name: s.replace('_', ' '), value: statusBreakdown[s] ?? 0, key: s })),
+    [statusBreakdown]
+  );
+
+  // Revenue trend — last 30 days
+  const revenueTrend = useMemo(() => {
+    const days = lastNDays(30);
+    return days.map((day) => ({
+      date: day.slice(5), // MM-DD
+      revenue: revenueFor(bookings, day, day),
+      bookings: bookings.filter((b) => b.booking_date === day).length,
+    }));
+  }, [bookings]);
+
+  // Peak hours bar chart
+  const peakHoursData = useMemo(() => {
     const hours: Record<number, { count: number; revenue: number }> = {};
     bookings
       .filter((b) => b.status === 'confirmed' || b.status === 'completed')
@@ -87,9 +147,12 @@ export default function OwnerAnalyticsPage() {
         hours[h].revenue += b.total_amount;
       });
     return Object.entries(hours)
-      .map(([h, v]) => ({ hour: parseInt(h, 10), ...v }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 10);
+      .map(([h, v]) => ({
+        hour: `${String(parseInt(h, 10)).padStart(2, '0')}:00`,
+        bookings: v.count,
+        revenue: v.revenue,
+      }))
+      .sort((a, b) => a.hour.localeCompare(b.hour));
   }, [bookings]);
 
   // Occupancy rate estimate (based on 16 operating hours/day, slot duration assumed 60 min)
@@ -183,43 +246,125 @@ export default function OwnerAnalyticsPage() {
         ))}
       </div>
 
+      {/* ── Revenue Trend Chart (last 30 days) ─────────────────────────────── */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <TrendingUp className="h-4 w-4 text-gray-400" /> Revenue Trend — Last 30 Days
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <Skeleton className="h-56 w-full" />
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <LineChart data={revenueTrend} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fontSize: 11, fill: '#9ca3af' }}
+                  tickLine={false}
+                  axisLine={false}
+                  interval="preserveStartEnd"
+                />
+                <YAxis
+                  tick={{ fontSize: 11, fill: '#9ca3af' }}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(v) => v === 0 ? '0' : `${(v / 1000).toFixed(0)}k`}
+                />
+                <Tooltip content={<RevenueTooltip />} />
+                <Line
+                  type="monotone"
+                  dataKey="revenue"
+                  stroke="#4f46e5"
+                  strokeWidth={2}
+                  dot={false}
+                  activeDot={{ r: 4, fill: '#4f46e5' }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ── Bookings per Day Chart ──────────────────────────────────────────── */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Calendar className="h-4 w-4 text-gray-400" /> Bookings per Day — Last 30 Days
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <Skeleton className="h-56 w-full" />
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={revenueTrend} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fontSize: 11, fill: '#9ca3af' }}
+                  tickLine={false}
+                  axisLine={false}
+                  interval="preserveStartEnd"
+                />
+                <YAxis
+                  tick={{ fontSize: 11, fill: '#9ca3af' }}
+                  tickLine={false}
+                  axisLine={false}
+                  allowDecimals={false}
+                />
+                <Tooltip content={<BookingsTooltip />} />
+                <Bar dataKey="bookings" fill="#818cf8" radius={[3, 3, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </CardContent>
+      </Card>
+
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        {/* Booking status breakdown */}
+        {/* ── Booking Status Pie Chart ────────────────────────────────────────── */}
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
-              <Users className="h-4 w-4 text-gray-400" /> Status Breakdown
+              <Users className="h-4 w-4 text-gray-400" /> Booking Status
             </CardTitle>
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <div className="space-y-2">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-8 w-full" />)}</div>
+              <Skeleton className="h-52 w-full" />
+            ) : pieData.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-10">No booking data yet.</p>
             ) : (
-              <div className="space-y-2">
-                {(['confirmed', 'completed', 'cancelled', 'pending', 'no_show'] as const).map((status) => {
-                  const count = statusBreakdown[status] ?? 0;
-                  const total = bookings.length || 1;
-                  return (
-                    <div key={status} className="flex items-center gap-3">
-                      <span className={`w-20 shrink-0 rounded-full px-2 py-0.5 text-xs font-medium text-center ${STATUS_COLORS[status]}`}>
-                        {status.replace('_', ' ')}
-                      </span>
-                      <div className="flex-1 h-2 rounded-full bg-gray-100">
-                        <div
-                          className={`h-2 rounded-full transition-all ${
-                            status === 'confirmed' ? 'bg-green-400' :
-                            status === 'completed' ? 'bg-blue-400' :
-                            status === 'cancelled' ? 'bg-red-400' :
-                            status === 'pending'   ? 'bg-yellow-400' :
-                            'bg-gray-300'
-                          }`}
-                          style={{ width: `${(count / total) * 100}%` }}
-                        />
-                      </div>
-                      <span className="w-8 shrink-0 text-right text-sm font-medium text-gray-700">{count}</span>
+              <div className="flex flex-col items-center">
+                <ResponsiveContainer width="100%" height={200}>
+                  <PieChart>
+                    <Pie
+                      data={pieData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={55}
+                      outerRadius={85}
+                      paddingAngle={3}
+                      dataKey="value"
+                    >
+                      {pieData.map((entry) => (
+                        <Cell key={entry.key} fill={PIE_COLORS[entry.key] ?? '#e5e7eb'} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={((v: number, name: string) => [`${v}`, `${name}`]) as unknown as undefined} />
+                  </PieChart>
+                </ResponsiveContainer>
+                {/* Legend */}
+                <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 mt-1">
+                  {pieData.map((entry) => (
+                    <div key={entry.key} className="flex items-center gap-1.5 text-xs text-gray-600">
+                      <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: PIE_COLORS[entry.key] ?? '#e5e7eb' }} />
+                      {entry.name} ({entry.value})
                     </div>
-                  );
-                })}
+                  ))}
+                </div>
               </div>
             )}
           </CardContent>
@@ -256,59 +401,37 @@ export default function OwnerAnalyticsPage() {
         </Card>
       </div>
 
-      {/* Peak hours */}
+      {/* ── Peak Hours Bar Chart ────────────────────────────────────────────── */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <Clock className="h-4 w-4 text-gray-400" /> Peak Hours
           </CardTitle>
         </CardHeader>
-        <CardContent className="p-0">
+        <CardContent>
           {isLoading ? (
-            <div className="p-6 space-y-2">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-8 w-full" />)}</div>
-          ) : peakHours.length === 0 ? (
-            <p className="p-6 text-center text-sm text-gray-400">No booking data available.</p>
+            <Skeleton className="h-56 w-full" />
+          ) : peakHoursData.length === 0 ? (
+            <p className="text-center text-sm text-gray-400 py-10">No booking data available.</p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-gray-100 text-xs text-gray-400 uppercase tracking-wide">
-                    <th className="px-5 py-3 text-left font-medium">Time Slot</th>
-                    <th className="px-5 py-3 text-right font-medium">Bookings</th>
-                    <th className="px-5 py-3 text-right font-medium">Revenue</th>
-                    <th className="px-5 py-3 text-left font-medium">Popularity</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {peakHours.map(({ hour, count, revenue }) => {
-                    const maxCount = peakHours[0]?.count ?? 1;
-                    const pct = Math.round((count / maxCount) * 100);
-                    return (
-                      <tr key={hour} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                        <td className="px-5 py-3 font-medium text-gray-800">
-                          {String(hour).padStart(2, '0')}:00 – {String(hour + 1).padStart(2, '0')}:00
-                        </td>
-                        <td className="px-5 py-3 text-right text-gray-700">{count}</td>
-                        <td className="px-5 py-3 text-right font-medium text-green-700">
-                          NPR {revenue.toLocaleString()}
-                        </td>
-                        <td className="px-5 py-3">
-                          <div className="flex items-center gap-2">
-                            <div className="flex-1 h-2 rounded-full bg-gray-100 max-w-xs">
-                              <div
-                                className="h-2 rounded-full bg-indigo-400"
-                                style={{ width: `${pct}%` }}
-                              />
-                            </div>
-                            <span className="text-xs text-gray-400 w-8">{pct}%</span>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={peakHoursData} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                <XAxis dataKey="hour" tick={{ fontSize: 11, fill: '#9ca3af' }} tickLine={false} axisLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} tickLine={false} axisLine={false} allowDecimals={false} />
+                <Tooltip
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  formatter={((v: number, name: string) => {
+                    const label = name === 'bookings' ? `${v} bookings` : `NPR ${Number(v).toLocaleString()}`;
+                    const title = name === 'bookings' ? 'Bookings' : 'Revenue (NPR)';
+                    return [label, title];
+                  }) as any}
+                />
+                <Legend wrapperStyle={{ fontSize: 12 }} />
+                <Bar dataKey="bookings" fill="#6366f1" radius={[3, 3, 0, 0]} name="Bookings" />
+                <Bar dataKey="revenue" fill="#34d399" radius={[3, 3, 0, 0]} name="Revenue (NPR)" />
+              </BarChart>
+            </ResponsiveContainer>
           )}
         </CardContent>
       </Card>

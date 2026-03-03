@@ -11,6 +11,7 @@ from src.apps.futsal.models.ground import FutsalGround
 from src.apps.futsal.models.booking import Booking, BookingStatus
 from src.apps.futsal.models.review import Review
 from src.apps.futsal.schemas import ReviewCreate, ReviewResponse, OwnerReplyCreate
+from src.apps.core.analytics import analytics
 
 router = APIRouter(tags=["Reviews"])
 
@@ -67,10 +68,17 @@ async def create_review(
 
     await db.commit()
     await db.refresh(review)
+
+    analytics.track(
+        distinct_id=str(current_user.id),
+        event="review_submitted",
+        properties={
+            "ground_id": ground_id,
+            "rating": data.rating,
+            "booking_id": booking_id,
+        },
+    )
     return review
-
-
-@router.put("/reviews/{review_id}", response_model=ReviewResponse)
 async def update_review(
     review_id: int,
     data: ReviewCreate,

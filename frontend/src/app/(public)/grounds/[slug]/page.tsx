@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api-client';
 import { useAuthStore } from '@/store/auth-store';
+import { useAnalytics } from '@/hooks/use-analytics';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { MapPin, Star, Clock, CheckCircle, AlertCircle, Lock } from 'lucide-react';
@@ -29,6 +30,7 @@ function StarRating({ rating, count }: { rating: number; count?: number }) {
 
 function GroundDetailClient({ slug }: { slug: string }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const { track } = useAnalytics();
   const today = new Date().toISOString().split('T')[0];
   const [selectedDate, setSelectedDate] = useState(today);
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
@@ -41,6 +43,18 @@ function GroundDetailClient({ slug }: { slug: string }) {
     },
     enabled: !!slug,
   });
+
+  // Track ground_viewed once when ground data loads
+  useEffect(() => {
+    if (ground) {
+      track('ground_viewed', {
+        ground_id: ground.id,
+        ground_name: ground.name,
+        ground_type: ground.ground_type,
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ground?.id]);
 
   const { data: slots, isLoading: slotsLoading } = useQuery({
     queryKey: ['slots', ground?.id, selectedDate],
@@ -259,7 +273,18 @@ function GroundDetailClient({ slug }: { slug: string }) {
                         return (
                           <button
                             key={slot.start_time}
-                            onClick={() => setSelectedSlot(isSelected ? null : slot)}
+                            onClick={() => {
+                              const next = isSelected ? null : slot;
+                              setSelectedSlot(next);
+                              if (next && ground) {
+                                track('slot_selected', {
+                                  ground_id: ground.id,
+                                  date: selectedDate,
+                                  start_time: slot.start_time,
+                                  price: slot.price,
+                                });
+                              }
+                            }}
                             className={`flex flex-col items-center justify-center py-2 px-1 rounded-md border text-xs font-medium transition-colors ${
                               isSelected
                                 ? 'border-green-600 bg-green-600 text-white'

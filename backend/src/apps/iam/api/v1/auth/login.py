@@ -18,6 +18,7 @@ from src.apps.iam.schemas.token import Token
 from src.apps.iam.schemas.user import LoginRequest
 
 from src.apps.iam.utils.ip_access import revoke_tokens_for_ip, get_client_ip
+from src.apps.core.analytics import analytics
 
 router = APIRouter()
 limiter = Limiter(key_func=get_remote_address)
@@ -150,7 +151,21 @@ async def login_access_token(
         )
         db.add(refresh_token_tracking)
         await db.commit()
-        
+
+        analytics.identify(
+            distinct_id=str(user.id),
+            properties={
+                "email": user.email,
+                "username": user.username,
+                "is_superuser": user.is_superuser,
+            },
+        )
+        analytics.track(
+            distinct_id=str(user.id),
+            event="user_signed_in",
+            properties={"method": "email", "ip_address": ip_address},
+        )
+
         if set_cookie:
             response.set_cookie(
                 key=settings.ACCESS_TOKEN_COOKIE,
@@ -236,6 +251,11 @@ async def logout(
         
         response.delete_cookie(key=settings.ACCESS_TOKEN_COOKIE)
         response.delete_cookie(key=settings.REFRESH_TOKEN_COOKIE)
+        analytics.track(
+            distinct_id=str(current_user.id),
+            event="user_signed_out",
+            properties={},
+        )
         return {"message": "Successfully logged out from this device"}
     except Exception:
         raise HTTPException(

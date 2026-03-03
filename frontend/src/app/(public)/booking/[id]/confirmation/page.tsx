@@ -1,8 +1,10 @@
 'use client';
 
+import { useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
+import { useAnalytics } from '@/hooks/use-analytics';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CheckCircle2, XCircle, Clock, MapPin, CalendarDays, Download, ArrowRight, AlertCircle } from 'lucide-react';
@@ -75,6 +77,9 @@ const STATUS_CONFIG = {
 type BookingWithGround = Booking & { ground_name?: string; ground_location?: string };
 
 export default function BookingConfirmationPage({ params }: { params: { id: string } }) {
+  const { track } = useAnalytics();
+  const trackedRef = useRef(false);
+
   const { data: booking, isLoading, isError } = useQuery({
     queryKey: ['booking', params.id],
     queryFn: async () => {
@@ -83,6 +88,27 @@ export default function BookingConfirmationPage({ params }: { params: { id: stri
     },
     enabled: !!params.id,
   });
+
+  // Fire analytics once when booking data loads with confirmed status
+  useEffect(() => {
+    if (booking && !trackedRef.current) {
+      if (booking.status === 'confirmed') {
+        trackedRef.current = true;
+        track('booking_confirmed', {
+          booking_id: booking.id,
+          ground_id: booking.ground_id,
+          amount: booking.paid_amount,
+        });
+        track('payment_success', {
+          amount: booking.paid_amount,
+          provider: 'khalti',
+          context: 'booking',
+          transaction_id: booking.id,
+        });
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [booking?.status]);
 
   if (isLoading) {
     return (
