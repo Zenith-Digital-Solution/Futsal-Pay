@@ -6,44 +6,61 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Award, TrendingUp, TrendingDown, Info } from 'lucide-react';
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// ── Types matching actual backend schema ──────────────────────────────────────
 
-interface LoyaltyBalance {
+interface LoyaltyAccount {
   points_balance: number;
-  tier: 'BRONZE' | 'SILVER' | 'GOLD' | 'PLATINUM';
-  tier_name: string;
-  next_tier_points: number;
+  total_earned: number;
+  total_redeemed: number;
 }
 
 interface LoyaltyTransaction {
   id: number;
   points: number;
-  type: 'EARNED' | 'REDEEMED' | 'EXPIRED' | 'ADJUSTED';
+  transaction_type: 'earned' | 'redeemed' | 'expired' | 'bonus' | 'refunded';
   description: string;
   created_at: string;
   booking_id?: number;
 }
 
-// ── Tier config ───────────────────────────────────────────────────────────────
+// ── Tier logic (client-side) ──────────────────────────────────────────────────
 
-const TIER_CONFIG: Record<string, { color: string; bg: string; thresholds: [number, number] }> = {
-  BRONZE:   { color: 'text-amber-700',   bg: 'bg-amber-100',   thresholds: [0,   500]  },
-  SILVER:   { color: 'text-slate-600',   bg: 'bg-slate-100',   thresholds: [500, 1500] },
-  GOLD:     { color: 'text-yellow-600',  bg: 'bg-yellow-100',  thresholds: [1500, 3000] },
-  PLATINUM: { color: 'text-purple-700',  bg: 'bg-purple-100',  thresholds: [3000, 3000] },
+type Tier = 'BRONZE' | 'SILVER' | 'GOLD' | 'PLATINUM';
+
+const TIERS: { name: Tier; label: string; min: number; max: number; color: string; bg: string }[] = [
+  { name: 'BRONZE',   label: 'Bronze',   min: 0,    max: 500,  color: 'text-amber-700',  bg: 'bg-amber-100'  },
+  { name: 'SILVER',   label: 'Silver',   min: 500,  max: 1500, color: 'text-slate-600',  bg: 'bg-slate-100'  },
+  { name: 'GOLD',     label: 'Gold',     min: 1500, max: 3000, color: 'text-yellow-600', bg: 'bg-yellow-100' },
+  { name: 'PLATINUM', label: 'Platinum', min: 3000, max: 3000, color: 'text-purple-700', bg: 'bg-purple-100' },
+];
+
+function getTier(points: number) {
+  const tier = [...TIERS].reverse().find((t) => points >= t.min) ?? TIERS[0];
+  const next = TIERS[TIERS.indexOf(tier) + 1];
+  const progress = next ? Math.min(100, ((points - tier.min) / (next.min - tier.min)) * 100) : 100;
+  const pointsToNext = next ? next.min - points : 0;
+  return { tier, next, progress, pointsToNext };
+}
+
+const TYPE_COLORS: Record<string, string> = {
+  earned:   'bg-green-50 text-green-700',
+  bonus:    'bg-blue-50 text-blue-700',
+  refunded: 'bg-blue-50 text-blue-700',
+  redeemed: 'bg-orange-50 text-orange-700',
+  expired:  'bg-gray-100 text-gray-500',
 };
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function LoyaltyPage() {
   const {
-    data: balance,
-    isLoading: balanceLoading,
-    isError: balanceError,
-  } = useQuery({
-    queryKey: ['loyalty-balance'],
+    data: account,
+    isLoading: accountLoading,
+    isError: accountError,
+  } = useQuery<LoyaltyAccount>({
+    queryKey: ['loyalty'],
     queryFn: async () => {
-      const { data } = await apiClient.get<LoyaltyBalance>('/futsal/loyalty/balance');
+      const { data } = await apiClient.get<LoyaltyAccount>('/futsal/loyalty');
       return data;
     },
   });
@@ -52,7 +69,7 @@ export default function LoyaltyPage() {
     data: history = [],
     isLoading: historyLoading,
     isError: historyError,
-  } = useQuery({
+  } = useQuery<LoyaltyTransaction[]>({
     queryKey: ['loyalty-history'],
     queryFn: async () => {
       const { data } = await apiClient.get<LoyaltyTransaction[]>('/futsal/loyalty/history');
@@ -60,12 +77,8 @@ export default function LoyaltyPage() {
     },
   });
 
-  const tier         = balance?.tier ?? 'BRONZE';
-  const tierCfg      = TIER_CONFIG[tier] ?? TIER_CONFIG.BRONZE;
-  const [min, max]   = tierCfg.thresholds;
-  const current      = balance?.points_balance ?? 0;
-  const progress     = max > min ? Math.min(100, ((current - min) / (max - min)) * 100) : 100;
-  const nextPoints   = balance?.next_tier_points ?? 0;
+  const points = account?.points_balance ?? 0;
+  const { tier, next, progress, pointsToNext } = getTier(points);
 
   return (
     <div className="space-y-6">
@@ -75,49 +88,52 @@ export default function LoyaltyPage() {
       </div>
 
       {/* Balance card */}
-      {balanceLoading ? (
+      {accountLoading ? (
         <Card><CardContent className="p-8"><Skeleton className="h-32 w-full" /></CardContent></Card>
-      ) : balanceError ? (
-        <Card><CardContent className="p-6 text-center text-red-500">Failed to load loyalty balance.</CardContent></Card>
-      ) : balance && (
+      ) : accountError ? (
+        <Card><CardContent className="p-6 text-center text-red-500">Failed to load loyalty account.</CardContent></Card>
+      ) : account && (
         <Card className="overflow-hidden">
           <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 text-white">
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-blue-200 text-sm font-medium">Total Points</p>
-                <p className="text-5xl font-bold mt-1">{current.toLocaleString()}</p>
-                <p className="text-blue-200 text-sm mt-1">points</p>
+                <p className="text-5xl font-bold mt-1">{points.toLocaleString()}</p>
+                <p className="text-blue-200 text-sm mt-1">points available</p>
               </div>
               <div className="flex items-center gap-2">
                 <Award className="h-8 w-8 text-yellow-300" />
-                <span className={`rounded-full px-3 py-1 text-sm font-semibold ${tierCfg.bg} ${tierCfg.color}`}>
-                  {balance.tier_name}
+                <span className={`rounded-full px-3 py-1 text-sm font-semibold ${tier.bg} ${tier.color}`}>
+                  {tier.label}
                 </span>
               </div>
             </div>
 
-            {/* Progress to next tier */}
-            {tier !== 'PLATINUM' && (
+            {next ? (
               <div className="mt-5">
                 <div className="flex justify-between text-xs text-blue-200 mb-1.5">
-                  <span>{tier}</span>
-                  <span>
-                    {nextPoints > 0
-                      ? `${nextPoints.toLocaleString()} pts to next tier`
-                      : 'Max tier reached'}
-                  </span>
+                  <span>{tier.label}</span>
+                  <span>{pointsToNext.toLocaleString()} pts to {next.label}</span>
                 </div>
                 <div className="h-2 rounded-full bg-blue-400/40">
-                  <div
-                    className="h-2 rounded-full bg-white transition-all duration-500"
-                    style={{ width: `${progress}%` }}
-                  />
+                  <div className="h-2 rounded-full bg-white transition-all duration-500" style={{ width: `${progress}%` }} />
                 </div>
               </div>
-            )}
-            {tier === 'PLATINUM' && (
+            ) : (
               <p className="mt-4 text-blue-200 text-sm">🏆 You&apos;ve reached the highest tier!</p>
             )}
+          </div>
+
+          {/* Stats row */}
+          <div className="grid grid-cols-2 divide-x divide-gray-100 border-t">
+            <div className="p-4 text-center">
+              <p className="text-xs text-gray-400 mb-1">Total Earned</p>
+              <p className="text-lg font-bold text-gray-900">{(account.total_earned).toLocaleString()}</p>
+            </div>
+            <div className="p-4 text-center">
+              <p className="text-xs text-gray-400 mb-1">Total Redeemed</p>
+              <p className="text-lg font-bold text-gray-900">{(account.total_redeemed).toLocaleString()}</p>
+            </div>
           </div>
         </Card>
       )}
@@ -163,37 +179,33 @@ export default function LoyaltyPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {history.map((tx) => (
-                    <tr key={tx.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                      <td className="px-5 py-3 text-gray-500 whitespace-nowrap">
-                        {new Date(tx.created_at).toLocaleDateString()}
-                      </td>
-                      <td className="px-5 py-3 text-gray-700">{tx.description}</td>
-                      <td className="px-5 py-3">
-                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                          tx.type === 'EARNED'   ? 'bg-green-50 text-green-700' :
-                          tx.type === 'REDEEMED' ? 'bg-orange-50 text-orange-700' :
-                          tx.type === 'EXPIRED'  ? 'bg-gray-100 text-gray-500' :
-                          'bg-blue-50 text-blue-700'
-                        }`}>
-                          {tx.type}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3 text-right font-semibold whitespace-nowrap">
-                        {tx.type === 'EARNED' || tx.type === 'ADJUSTED' ? (
-                          <span className="flex items-center justify-end gap-0.5 text-green-600">
-                            <TrendingUp className="h-3.5 w-3.5" />
-                            +{tx.points}
+                  {history.map((tx) => {
+                    const isPositive = tx.points > 0;
+                    return (
+                      <tr key={tx.id} className="border-b border-gray-50 hover:bg-gray-50">
+                        <td className="px-5 py-3 text-gray-500 whitespace-nowrap">
+                          {new Date(tx.created_at).toLocaleDateString()}
+                        </td>
+                        <td className="px-5 py-3 text-gray-700">{tx.description}</td>
+                        <td className="px-5 py-3">
+                          <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${TYPE_COLORS[tx.transaction_type] ?? 'bg-gray-100 text-gray-500'}`}>
+                            {tx.transaction_type}
                           </span>
-                        ) : (
-                          <span className="flex items-center justify-end gap-0.5 text-red-500">
-                            <TrendingDown className="h-3.5 w-3.5" />
-                            -{tx.points}
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="px-5 py-3 text-right font-semibold whitespace-nowrap">
+                          {isPositive ? (
+                            <span className="flex items-center justify-end gap-0.5 text-green-600">
+                              <TrendingUp className="h-3.5 w-3.5" />+{tx.points}
+                            </span>
+                          ) : (
+                            <span className="flex items-center justify-end gap-0.5 text-red-500">
+                              <TrendingDown className="h-3.5 w-3.5" />{tx.points}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -203,3 +215,4 @@ export default function LoyaltyPage() {
     </div>
   );
 }
+

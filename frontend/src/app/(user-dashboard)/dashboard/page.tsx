@@ -1,34 +1,46 @@
 'use client';
 
 import { useAuthStore } from '@/store/auth-store';
+import { useMyBookings, useLoyalty } from '@/hooks/use-futsal';
 import { useNotifications } from '@/hooks/use-notifications';
-import { useTokens } from '@/hooks/use-tokens';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Bell, Shield, Key, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
+import {
+  Calendar, MapPin, Heart, Gift, Bell, Star,
+  Clock, CheckCircle, AlertTriangle, Shield,
+} from 'lucide-react';
 import Link from 'next/link';
 
 export default function DashboardPage() {
   const { user } = useAuthStore();
-  const { data: notifData, isLoading: loadingNotifs } = useNotifications({ limit: 5 });
-  const { data: tokenData } = useTokens({ limit: 1 });
+  const { data: bookingsData, isLoading: loadingBookings } = useMyBookings({ status_filter: 'upcoming' });
+  const { data: loyaltyData } = useLoyalty();
+  const { data: notifData } = useNotifications({ limit: 5 });
 
-  const recentNotifs = notifData?.items ?? [];
+  const upcomingBookings = bookingsData ?? [];
+  const loyaltyPoints = loyaltyData?.points_balance ?? 0;
   const unreadCount = notifData?.unread_count ?? 0;
-  const activeSessions = tokenData?.total ?? 0;
+  const recentNotifs = notifData?.items ?? [];
 
   const stats = [
     {
-      name: 'Unread Notifications',
-      value: String(unreadCount),
-      icon: Bell,
-      href: '/notifications',
+      name: 'Upcoming Bookings',
+      value: Array.isArray(upcomingBookings) ? String(upcomingBookings.length) : '—',
+      icon: Calendar,
+      href: '/my-bookings',
       color: 'text-blue-600 bg-blue-50',
     },
     {
-      name: 'Active Sessions',
-      value: String(activeSessions),
-      icon: Key,
-      href: '/tokens',
+      name: 'Loyalty Points',
+      value: String(loyaltyPoints),
+      icon: Gift,
+      href: '/loyalty',
+      color: 'text-amber-600 bg-amber-50',
+    },
+    {
+      name: 'Notifications',
+      value: String(unreadCount),
+      icon: Bell,
+      href: '/notifications',
       color: 'text-purple-600 bg-purple-50',
     },
     {
@@ -36,19 +48,20 @@ export default function DashboardPage() {
       value: user?.otp_enabled ? 'Enabled' : 'Disabled',
       icon: Shield,
       href: '/profile',
-      color: user?.otp_enabled ? 'text-green-600 bg-green-50' : 'text-yellow-600 bg-yellow-50',
+      color: user?.otp_enabled ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50',
     },
   ];
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-500">
-          Welcome back{user?.first_name ? `, ${user.first_name}` : user?.username ? `, ${user.username}` : ''}!
-        </p>
+        <h1 className="text-2xl font-bold text-gray-900">
+          Welcome back, {user?.first_name || user?.username}!
+        </h1>
+        <p className="text-gray-500 mt-1">Here's your Futsal activity overview.</p>
       </div>
 
+      {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((stat) => (
           <Link key={stat.name} href={stat.href}>
@@ -70,46 +83,46 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Upcoming Bookings */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="flex items-center gap-2">
-              <Bell className="h-5 w-5" />
-              Recent Notifications
+              <Calendar className="h-5 w-5" />
+              Upcoming Bookings
             </CardTitle>
-            <Link href="/notifications" className="text-sm text-blue-600 hover:underline">
+            <Link href="/my-bookings" className="text-sm text-blue-600 hover:underline">
               View all
             </Link>
           </CardHeader>
           <CardContent>
-            {loadingNotifs ? (
+            {loadingBookings ? (
               <div className="space-y-3">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="h-12 bg-gray-100 rounded animate-pulse" />
-                ))}
+                {[1, 2].map((i) => <div key={i} className="h-14 bg-gray-100 rounded animate-pulse" />)}
               </div>
-            ) : recentNotifs.length === 0 ? (
+            ) : !Array.isArray(upcomingBookings) || upcomingBookings.length === 0 ? (
               <div className="text-center py-8">
-                <Bell className="h-8 w-8 text-gray-300 mx-auto mb-2" />
-                <p className="text-sm text-gray-500">No notifications yet</p>
+                <Calendar className="h-8 w-8 text-gray-300 mx-auto mb-2" />
+                <p className="text-sm text-gray-500">No upcoming bookings</p>
+                <Link href="/grounds" className="mt-2 inline-block text-sm text-blue-600 hover:underline">
+                  Browse grounds →
+                </Link>
               </div>
             ) : (
               <div className="space-y-3">
-                {recentNotifs.map((n) => (
-                  <div
-                    key={n.id}
-                    className={`flex items-start gap-3 p-3 rounded-lg ${n.is_read ? '' : 'bg-blue-50'}`}
-                  >
-                    <div
-                      className={`mt-0.5 h-2 w-2 rounded-full shrink-0 ${
-                        n.is_read ? 'bg-gray-300' : 'bg-blue-500'
-                      }`}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">{n.title}</p>
-                      <p className="text-xs text-gray-500 truncate">{n.body}</p>
+                {upcomingBookings.slice(0, 3).map((b) => (
+                  <div key={b.id} className="flex items-start gap-3 p-3 rounded-lg bg-gray-50">
+                    <div className="h-9 w-9 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
+                      <MapPin className="h-4 w-4 text-blue-600" />
                     </div>
-                    <span className="text-xs text-gray-400 shrink-0">
-                      {new Date(n.created_at).toLocaleDateString()}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">Ground #{b.ground_id}</p>
+                      <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                        <Clock className="h-3 w-3" />
+                        {b.booking_date} · {b.start_time}–{b.end_time}
+                      </p>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 shrink-0">
+                      {b.status}
                     </span>
                   </div>
                 ))}
@@ -118,6 +131,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
+        {/* Quick Actions */}
         <Card>
           <CardHeader>
             <CardTitle>Quick Actions</CardTitle>
@@ -125,14 +139,17 @@ export default function DashboardPage() {
           <CardContent>
             <div className="grid grid-cols-2 gap-3">
               {[
-                { href: '/profile', icon: Shield, label: 'Security Settings', desc: 'Manage 2FA & password', color: 'text-blue-600' },
-                { href: '/tokens', icon: Key, label: 'Active Sessions', desc: 'View & revoke sessions', color: 'text-purple-600' },
-                { href: '/notifications', icon: Bell, label: 'Notifications', desc: `${unreadCount} unread`, color: 'text-orange-600' },
+                { href: '/grounds', icon: MapPin, label: 'Book a Ground', desc: 'Find & book nearby fields', color: 'text-blue-600' },
+                { href: '/my-bookings', icon: Calendar, label: 'My Bookings', desc: 'View upcoming & past', color: 'text-green-600' },
+                { href: '/favourites', icon: Heart, label: 'Favourites', desc: 'Saved grounds', color: 'text-red-500' },
+                { href: '/loyalty', icon: Gift, label: 'Loyalty Points', desc: `${loyaltyPoints} pts available`, color: 'text-amber-600' },
+                { href: '/notifications', icon: Bell, label: 'Notifications', desc: `${unreadCount} unread`, color: 'text-purple-600' },
+                { href: '/profile', icon: Shield, label: 'Security', desc: 'Manage 2FA & password', color: 'text-gray-600' },
               ].map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="flex flex-col gap-2 p-4 rounded-lg border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-colors"
+                  className="flex flex-col gap-2 p-3 rounded-lg border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-colors"
                 >
                   <item.icon className={`h-5 w-5 ${item.color}`} />
                   <div>
@@ -146,41 +163,48 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {!user?.is_confirmed && (
-        <Card className="border-yellow-200 bg-yellow-50">
-          <CardContent className="pt-6">
-            <div className="flex items-start gap-3">
-              <AlertTriangle className="h-5 w-5 text-yellow-600 shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-medium text-yellow-800">Email not verified</p>
-                <p className="text-xs text-yellow-700 mt-1">
-                  Please verify your email address to unlock all features.
-                </p>
-              </div>
+      {/* Recent Notifications */}
+      {recentNotifs.length > 0 && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Bell className="h-5 w-5" />
+              Recent Notifications
+            </CardTitle>
+            <Link href="/notifications" className="text-sm text-blue-600 hover:underline">View all</Link>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {recentNotifs.slice(0, 4).map((n) => (
+                <div
+                  key={n.id}
+                  className={`flex items-start gap-3 p-3 rounded-lg ${n.is_read ? '' : 'bg-blue-50'}`}
+                >
+                  <div className={`mt-1.5 h-2 w-2 rounded-full shrink-0 ${n.is_read ? 'bg-gray-300' : 'bg-blue-500'}`} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">{n.title}</p>
+                    <p className="text-xs text-gray-500 truncate">{n.body}</p>
+                  </div>
+                  <span className="text-xs text-gray-400 shrink-0">
+                    {new Date(n.created_at).toLocaleDateString()}
+                  </span>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>
       )}
 
-      {!user?.otp_enabled && (
-        <Card className="border-orange-200 bg-orange-50">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-start gap-3">
-                <Shield className="h-5 w-5 text-orange-600 shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium text-orange-800">Two-factor authentication is disabled</p>
-                  <p className="text-xs text-orange-700 mt-1">
-                    Enable 2FA to add an extra layer of security to your account.
-                  </p>
-                </div>
+      {/* Alerts */}
+      {!user?.is_confirmed && (
+        <Card className="border-yellow-200 bg-yellow-50">
+          <CardContent className="pt-4">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="h-5 w-5 text-yellow-600 shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-yellow-800">Email not verified</p>
+                <p className="text-xs text-yellow-700">Verify your email to unlock all features.</p>
               </div>
-              <Link
-                href="/profile"
-                className="text-sm font-medium text-orange-700 hover:text-orange-900 underline shrink-0"
-              >
-                Enable 2FA
-              </Link>
             </div>
           </CardContent>
         </Card>
@@ -188,3 +212,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+

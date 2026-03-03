@@ -4,6 +4,8 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/auth-store';
+import { getDashboardPath } from '@/lib/role-routing';
+
 import { Button } from '@/components/ui/button';
 import { ShoppingCart, Shield, Zap, Users } from 'lucide-react';
 
@@ -32,13 +34,15 @@ const features = [
 
 export default function Home() {
   const router = useRouter();
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, user } = useAuthStore();
 
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && user) {
+      router.push(getDashboardPath(user));
+    } else if (isAuthenticated) {
       router.push('/dashboard');
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, user, router]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-gray-50">

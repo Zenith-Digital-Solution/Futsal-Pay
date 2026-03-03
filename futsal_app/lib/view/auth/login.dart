@@ -5,6 +5,7 @@ import 'package:ui/view/profile/bloc/profile_bloc.dart';
 import 'package:ui/view/profile/bloc/profile_event.dart';
 import '../../core/dimension.dart';
 import '../../core/app_theme.dart';
+import '../../core/social_auth_config.dart';
 import 'bloc/auth_bloc.dart';
 import 'bloc/auth_event.dart';
 import 'bloc/auth_state.dart';
@@ -497,6 +498,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             SizedBox(height: Dimension.height(16)),
                             // Social Login Buttons
+                            if (SocialAuthConfig.googleEnabled)
                             SizedBox(
                               width: double.infinity,
                               height: Dimension.height(52),

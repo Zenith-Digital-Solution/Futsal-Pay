@@ -17,19 +17,19 @@ import { Activity, CheckCircle, Clock, AlertTriangle, XCircle, RefreshCw } from 
 // ── Types ──────────────────────────────────────────────────────────────────
 
 const STATUS_STYLES: Record<SubscriptionStatus, string> = {
-  ACTIVE: 'bg-green-900 text-green-300',
-  TRIALING: 'bg-blue-900 text-blue-300',
-  GRACE: 'bg-yellow-900 text-yellow-300',
-  EXPIRED: 'bg-red-900 text-red-300',
-  CANCELLED: 'bg-slate-700 text-slate-400',
+  active: 'bg-green-900 text-green-300',
+  trialing: 'bg-blue-900 text-blue-300',
+  grace: 'bg-yellow-900 text-yellow-300',
+  expired: 'bg-red-900 text-red-300',
+  cancelled: 'bg-slate-700 text-slate-400',
 };
 
 const STATUS_ICONS: Record<SubscriptionStatus, React.ElementType> = {
-  ACTIVE: CheckCircle,
-  TRIALING: Clock,
-  GRACE: AlertTriangle,
-  EXPIRED: XCircle,
-  CANCELLED: XCircle,
+  active: CheckCircle,
+  trialing: Clock,
+  grace: AlertTriangle,
+  expired: XCircle,
+  cancelled: XCircle,
 };
 
 function StatusBadge({ status }: { status: SubscriptionStatus }) {
@@ -149,7 +149,7 @@ function ActivateDialog({
 
 // ── Main page ──────────────────────────────────────────────────────────────
 
-const ALL_STATUSES: SubscriptionStatus[] = ['ACTIVE', 'TRIALING', 'GRACE', 'EXPIRED', 'CANCELLED'];
+const ALL_STATUSES: SubscriptionStatus[] = ['active', 'trialing', 'grace', 'expired', 'cancelled'];
 
 export default function AdminSubscriptionsPage() {
   const { data: subscriptions = [], isLoading } = useAllSubscriptions();
@@ -179,10 +179,10 @@ export default function AdminSubscriptionsPage() {
   );
 
   const statCards = [
-    { label: 'Active', count: counts.ACTIVE, color: 'text-green-400 bg-green-900' },
-    { label: 'Trialing', count: counts.TRIALING, color: 'text-blue-400 bg-blue-900' },
-    { label: 'Expired', count: counts.EXPIRED, color: 'text-red-400 bg-red-900' },
-    { label: 'Cancelled', count: counts.CANCELLED, color: 'text-slate-400 bg-slate-700' },
+    { label: 'Active', count: counts.active, color: 'text-green-400 bg-green-900' },
+    { label: 'Trialing', count: counts.trialing, color: 'text-blue-400 bg-blue-900' },
+    { label: 'Expired', count: counts.expired, color: 'text-red-400 bg-red-900' },
+    { label: 'Cancelled', count: counts.cancelled, color: 'text-slate-400 bg-slate-700' },
   ];
 
   return (

@@ -3,6 +3,8 @@
 import { Suspense, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth-store';
+import { apiClient } from '@/lib/api-client';
+import { getDashboardPath } from '@/lib/role-routing';
 import { Loader2 } from 'lucide-react';
 
 /**
@@ -14,7 +16,7 @@ import { Loader2 } from 'lucide-react';
 function AuthCallbackInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { setTokens } = useAuthStore();
+  const { setTokens, setUser } = useAuthStore();
 
   useEffect(() => {
     const access = searchParams.get('access');
@@ -28,11 +30,20 @@ function AuthCallbackInner() {
 
     if (access && refresh) {
       setTokens(access, refresh);
-      router.replace('/dashboard');
+      // Fetch user to determine role-based dashboard
+      apiClient
+        .get('/users/me', { headers: { Authorization: `Bearer ${access}` } })
+        .then((res) => {
+          setUser(res.data);
+          router.replace(getDashboardPath(res.data));
+        })
+        .catch(() => {
+          router.replace('/dashboard');
+        });
     } else {
       router.replace('/login?error=oauth_failed');
     }
-  }, [searchParams, setTokens, router]);
+  }, [searchParams, setTokens, setUser, router]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50">
@@ -51,3 +62,4 @@ export default function AuthCallbackPage() {
     </Suspense>
   );
 }
+

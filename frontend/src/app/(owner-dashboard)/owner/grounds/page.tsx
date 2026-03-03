@@ -42,7 +42,7 @@ export default function OwnerGroundsPage() {
                   <h3 className="font-semibold text-lg">{g.name}</h3>
                   <div className="flex gap-1">
                     {g.is_verified ? (
-                      <CheckCircle className="h-5 w-5 text-green-500" title="Verified" />
+                      <CheckCircle className="h-5 w-5 text-green-500" aria-label="Verified" />
                     ) : (
                       <span className="text-xs text-yellow-600 bg-yellow-50 px-2 py-0.5 rounded-full">
                         Pending Verification

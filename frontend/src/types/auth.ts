@@ -15,6 +15,7 @@ export interface User {
   image_url?: string;
   bio?: string;
   roles: string[];
+  created_at?: string;
 }
 
 export interface AuthTokens {

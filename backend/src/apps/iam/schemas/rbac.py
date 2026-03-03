@@ -2,12 +2,13 @@ from typing import Optional
 from datetime import datetime
 from pydantic import BaseModel, field_serializer
 from src.apps.iam.utils.hashid import encode_id
+from src.apps.iam.enums import ResourceEnum, ActionEnum, RoleNameEnum
 
 
 # ── Request schemas ──────────────────────────────────────────────────────────
 
 class RoleCreate(BaseModel):
-    name: str
+    name: RoleNameEnum
     description: str = ""
 
 
@@ -17,15 +18,19 @@ class RoleUpdate(BaseModel):
 
 
 class PermissionCreate(BaseModel):
-    resource: str
-    action: str
+    resource: ResourceEnum
+    action: ActionEnum
     description: str = ""
+    # ground_id is the *decoded* integer ground ID; None means global permission
+    ground_id: Optional[int] = None
 
 
 class RoleAssignment(BaseModel):
     """user_id and role_id are encoded hashids supplied by the client."""
     user_id: str
     role_id: str
+    # Casbin domain: "global" for owner/user roles, "ground:{id}" for manager/tenant
+    domain: str = "global"
 
 
 class PermissionAssignment(BaseModel):
@@ -43,16 +48,22 @@ class CheckPermissionRequest(BaseModel):
 
 class PermissionResponse(BaseModel):
     id: int
-    resource: str
-    action: str
+    resource: ResourceEnum
+    action: ActionEnum
     description: str
     created_at: datetime
+    created_by_id: Optional[int] = None
+    ground_id: Optional[int] = None
 
     model_config = {"from_attributes": True}
 
     @field_serializer("id")
     def serialize_id(self, value: int) -> str:
         return encode_id(value)
+
+    @field_serializer("created_by_id")
+    def serialize_created_by_id(self, value: Optional[int]) -> Optional[str]:
+        return encode_id(value) if value else None
 
 
 class RoleResponse(BaseModel):
@@ -73,6 +84,7 @@ class UserRoleResponse(BaseModel):
     id: int
     user_id: int
     role_id: int
+    domain: str
     assigned_at: datetime
     role: RoleResponse
 

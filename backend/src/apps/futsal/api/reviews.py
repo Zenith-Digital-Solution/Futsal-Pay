@@ -79,6 +79,27 @@ async def create_review(
         },
     )
     return review
+
+
+@router.get("/reviews/my", response_model=List[ReviewResponse])
+async def my_reviews(
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    skip: int = 0,
+    limit: int = 50,
+):
+    """Return all reviews written by the current user."""
+    result = await db.execute(
+        select(Review)
+        .where(Review.user_id == current_user.id)
+        .order_by(Review.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+    )
+    return result.scalars().all()
+
+
+@router.put("/reviews/{review_id}", response_model=ReviewResponse)
 async def update_review(
     review_id: int,
     data: ReviewCreate,

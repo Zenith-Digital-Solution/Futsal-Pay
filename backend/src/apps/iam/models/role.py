@@ -1,8 +1,12 @@
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 from datetime import datetime
 from sqlmodel import Field, SQLModel, Relationship
 
 from .user import User
+from src.apps.iam.enums import ResourceEnum, ActionEnum
+
+if TYPE_CHECKING:
+    from src.apps.futsal.models.ground import Ground
 
 
 class RoleBase(SQLModel):
@@ -39,15 +43,13 @@ class Role(RoleBase, table=True):
 
 
 class PermissionBase(SQLModel):
-    resource: str = Field(
-        max_length=100,
+    resource: ResourceEnum = Field(
         index=True,
-        description="Resource identifier (e.g., 'users', 'posts', 'settings')"
+        description="Resource identifier (e.g., 'grounds', 'bookings', 'users')"
     )
-    action: str = Field(
-        max_length=50,
+    action: ActionEnum = Field(
         index=True,
-        description="Action allowed on resource (e.g., 'read', 'write', 'delete')"
+        description="Action allowed on resource (e.g., 'read', 'write', 'delete', 'manage')"
     )
     description: str = Field(
         default="",
@@ -64,6 +66,20 @@ class Permission(PermissionBase, table=True):
     created_at: datetime = Field(
         default_factory=datetime.now,
         description="Timestamp when the permission was created"
+    )
+    # The user who created this permission (owner or superuser)
+    created_by_id: Optional[int] = Field(
+        default=None,
+        foreign_key="user.id",
+        index=True,
+        description="User ID of the creator"
+    )
+    # Ground this permission is scoped to (None = global/superuser-created)
+    ground_id: Optional[int] = Field(
+        default=None,
+        foreign_key="futsal_grounds.id",
+        index=True,
+        description="Ground this permission is scoped to"
     )
     
     # Relationships
@@ -85,6 +101,13 @@ class UserRole(SQLModel, table=True):
         foreign_key="role.id",
         index=True,
         description="Role ID"
+    )
+    # Casbin domain: "global" for owner/user roles, "ground:{id}" for manager/tenant
+    domain: str = Field(
+        default="global",
+        max_length=100,
+        index=True,
+        description="Domain scope: 'global' or 'ground:{id}'"
     )
     assigned_at: datetime = Field(
         default_factory=datetime.now,

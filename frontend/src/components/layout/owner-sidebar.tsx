@@ -12,15 +12,19 @@ import {
   CreditCard,
   Users,
   BadgeCheck,
+  CalendarDays,
+  ShieldCheck,
 } from 'lucide-react';
 
 const navigation = [
   { name: 'Dashboard', href: '/owner/dashboard', icon: LayoutDashboard },
   { name: 'My Grounds', href: '/owner/grounds', icon: MapPin },
   { name: 'Bookings', href: '/owner/bookings', icon: Calendar },
+  { name: 'Calendar', href: '/owner/bookings/calendar', icon: CalendarDays },
   { name: 'Analytics', href: '/owner/analytics', icon: BarChart3 },
   { name: 'Reviews', href: '/owner/reviews', icon: Star },
   { name: 'Team', href: '/owner/team', icon: Users },
+  { name: 'Access', href: '/owner/rbac', icon: ShieldCheck },
   { name: 'Payouts', href: '/owner/payout', icon: Wallet },
   { name: 'Payment Settings', href: '/owner/payout/settings', icon: CreditCard },
   { name: 'Subscription', href: '/owner/subscription', icon: BadgeCheck },
@@ -38,7 +42,9 @@ export function OwnerSidebar() {
       </div>
       <nav className="flex flex-col gap-1 p-4">
         {navigation.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+          const isActive =
+            pathname === item.href ||
+            (item.href !== '/owner/bookings' && pathname.startsWith(`${item.href}/`));
           return (
             <Link
               key={item.name}

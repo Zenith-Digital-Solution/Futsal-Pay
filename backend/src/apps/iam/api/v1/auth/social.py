@@ -27,6 +27,34 @@ from src.apps.iam.utils.social import (
 router = APIRouter()
 
 
+_PROVIDER_ENABLED = {
+    "google": lambda: settings.GOOGLE_ENABLED,
+    "github": lambda: settings.GITHUB_ENABLED,
+    "facebook": lambda: settings.FACEBOOK_ENABLED,
+}
+
+
+def _require_provider_enabled(provider: str) -> None:
+    """Raise 404 if the provider is not enabled in settings."""
+    check = _PROVIDER_ENABLED.get(provider)
+    if check and not check():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Provider '{provider}' is not enabled",
+        )
+
+
+@router.get(
+    "/social/providers",
+    summary="List enabled OAuth2 providers",
+    description="Returns which social-auth providers are enabled on this server.",
+)
+async def list_providers() -> dict:
+    return {
+        "providers": [p for p, check in _PROVIDER_ENABLED.items() if check()]
+    }
+
+
 class MobileGoogleTokenRequest(BaseModel):
     id_token: str
 
@@ -47,6 +75,7 @@ async def mobile_google_login(
     db: AsyncSession = Depends(get_db),
 ) -> Token:
     """Verify a Google ID token from the mobile Google Sign-In SDK."""
+    _require_provider_enabled("google")
     # Verify the Google ID token by calling Google's tokeninfo endpoint
     async with httpx.AsyncClient(timeout=10) as http:
         try:
@@ -144,6 +173,7 @@ async def social_login(provider: str) -> RedirectResponse:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Provider '{provider}' is not supported. Supported: {list(OAUTH_PROVIDERS.keys())}",
         )
+    _require_provider_enabled(provider)
     config = OAUTH_PROVIDERS[provider]
     client_id, _ = get_provider_credentials(provider)
     params: dict[str, Any] = {
@@ -178,6 +208,7 @@ async def social_callback(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Provider '{provider}' is not supported",
         )
+    _require_provider_enabled(provider)
 
     if not security.verify_oauth_state(state, provider):
         raise HTTPException(

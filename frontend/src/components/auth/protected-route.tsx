@@ -5,16 +5,19 @@ import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { useAuthStore } from '@/store/auth-store';
 import { apiClient } from '@/lib/api-client';
+import { getDashboardPath } from '@/lib/role-routing';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
+  /** If provided, the route is only accessible to users with this role (or superuser). */
+  requiredRole?: 'owner' | 'manager' | 'tenant' | 'superuser';
 }
 
 const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
-export function ProtectedRoute({ children }: ProtectedRouteProps) {
+export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
   const router = useRouter();
-  const { isAuthenticated, _hasHydrated, setUser, setTokens, logout } = useAuthStore();
+  const { isAuthenticated, _hasHydrated, setUser, setTokens, logout, user } = useAuthStore();
   const [isInitializing, setIsInitializing] = useState(true);
 
   useEffect(() => {
@@ -26,9 +29,20 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
         try {
           const res = await apiClient.get('/users/me');
           setUser(res.data);
+          // Enforce role guard if required
+          if (requiredRole) {
+            const u = res.data;
+            const hasAccess =
+              u.is_superuser ||
+              (requiredRole === 'superuser' && u.is_superuser) ||
+              (requiredRole !== 'superuser' && u.roles?.includes(requiredRole));
+            if (!hasAccess) {
+              router.push(getDashboardPath(u));
+              return;
+            }
+          }
         } catch {
           // access token invalid — fall through to refresh attempt below
-          // (api-client interceptor already handles 401 refresh, but we catch here too)
         }
         setIsInitializing(false);
         return;
@@ -39,7 +53,6 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
         typeof window !== 'undefined' ? localStorage.getItem('refresh_token') : null;
 
       if (!refreshToken) {
-        // No refresh token at all → go to login
         router.push('/login');
         setIsInitializing(false);
         return;
@@ -60,8 +73,19 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
           headers: { Authorization: `Bearer ${access}` },
         });
         setUser(userRes.data);
+        // Enforce role guard if required
+        if (requiredRole) {
+          const u = userRes.data;
+          const hasAccess =
+            u.is_superuser ||
+            (requiredRole === 'superuser' && u.is_superuser) ||
+            (requiredRole !== 'superuser' && u.roles?.includes(requiredRole));
+          if (!hasAccess) {
+            router.push(getDashboardPath(u));
+            return;
+          }
+        }
       } catch {
-        // Refresh failed (token expired / revoked) → clear everything and go to login
         logout();
         router.push('/login');
       } finally {
@@ -73,7 +97,6 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [_hasHydrated]);
 
-  // While Zustand is rehydrating from localStorage or we're attempting a refresh
   if (!_hasHydrated || isInitializing) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -82,7 +105,6 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     );
   }
 
-  // Refresh failed and router.push('/login') is in-flight — show spinner
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -93,3 +115,4 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
 
   return <>{children}</>;
 }
+

@@ -82,38 +82,113 @@ services:
 
   apiservice:
     container_name: "apiservice"
-    image: "futsal/apiservice:latest"
-    user: "root"
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
     environment:
-      OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EXCEPTION_LOG_ATTRIBUTES: "true"
-      OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EVENT_LOG_ATTRIBUTES: "true"
-      OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY: "in_memory"
-      ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
-      HTTP_PORTS: "8080"
-      ConnectionStrings__futsaldb: "Host=db;Port=5432;Username=postgres;Password=${POSTGRES_PASSWORD};Database=futsaldb"
-      ConnectionStrings__cache: "cache:6379,password=${REDIS_PASSWORD}"
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://aspire-dashboard:18889"
-      OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
-      OTEL_EXPORTER_OTLP_HEADERS: "x-otlp-api-key=${DASHBOARD_API_KEY}"
-      OTEL_SERVICE_NAME: "apiservice"
-      OTEL_RESOURCE_ATTRIBUTES: "service.name=apiservice,service.version=1.0.0"
-    command: >
-      sh -c "
-        mkdir -p /app/wwwroot/uploads &&
-        chmod -R 777 /app/wwwroot/uploads &&
-        chown -R appuser:appuser /app/wwwroot/uploads &&
-        su appuser -c 'dotnet FutsalApi.ApiService.dll'
-      "
+      PYTHONPATH: "."
+      DEBUG: "False"
+      SECRET_KEY: ${SECRET_KEY}
+      POSTGRES_SERVER: "db"
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: "postgres"
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: "futsaldb"
+      REDIS_HOST: "cache"
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      SECURE_COOKIES: "True"
+      PAYOUT_MODE: ${PAYOUT_MODE:-PLATFORM}
+      PLATFORM_FEE_PCT: ${PLATFORM_FEE_PCT:-5.0}
+      PLATFORM_KHALTI_SECRET_KEY: ${PLATFORM_KHALTI_SECRET_KEY:-}
+      PLATFORM_KHALTI_MOBILE: ${PLATFORM_KHALTI_MOBILE:-}
+      PLATFORM_ESEWA_MERCHANT_CODE: ${PLATFORM_ESEWA_MERCHANT_CODE:-}
+      PLATFORM_ESEWA_SECRET_KEY: ${PLATFORM_ESEWA_SECRET_KEY:-}
+      PLATFORM_BANK_NAME: ${PLATFORM_BANK_NAME:-}
+      PLATFORM_BANK_ACCOUNT_NUMBER: ${PLATFORM_BANK_ACCOUNT_NUMBER:-}
+      PLATFORM_BANK_ACCOUNT_NAME: ${PLATFORM_BANK_ACCOUNT_NAME:-}
+      PLATFORM_BANK_SWIFT_CODE: ${PLATFORM_BANK_SWIFT_CODE:-}
+      EMAIL_ENABLED: ${EMAIL_ENABLED:-False}
+      EMAIL_HOST: ${EMAIL_HOST:-}
+      EMAIL_PORT: ${EMAIL_PORT:-587}
+      EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
+      EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
+      EMAIL_FROM_ADDRESS: ${EMAIL_FROM_ADDRESS:-}
+      POSTHOG_ENABLED: ${POSTHOG_ENABLED:-False}
+      POSTHOG_API_KEY: ${POSTHOG_API_KEY:-}
+      POSTHOG_HOST: ${POSTHOG_HOST:-https://us.i.posthog.com}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      FACEBOOK_CLIENT_ID: ${FACEBOOK_CLIENT_ID:-}
+      FACEBOOK_CLIENT_SECRET: ${FACEBOOK_CLIENT_SECRET:-}
+      SOCIAL_AUTH_REDIRECT_URL: ${SOCIAL_AUTH_REDIRECT_URL:-http://localhost:3000/auth/callback}
     ports:
-      - target: 8080
-        published: 10000
-      - target: 8443
-        published: 10001
+      - target: 8000
+        published: 8000
     volumes:
-      - "uploads_data:/app/wwwroot/uploads"
+      - "uploads_data:/app/media"
     depends_on:
       - db
       - cache
+    restart: unless-stopped
+    networks:
+      - futsalnet
+
+  celery-worker:
+    container_name: "celery-worker"
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    command: celery -A src.apps.core.celery_app worker --loglevel=info
+    environment:
+      PYTHONPATH: "."
+      DEBUG: "False"
+      SECRET_KEY: ${SECRET_KEY}
+      POSTGRES_SERVER: "db"
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: "postgres"
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: "futsaldb"
+      REDIS_HOST: "cache"
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      POSTHOG_ENABLED: ${POSTHOG_ENABLED:-False}
+      POSTHOG_API_KEY: ${POSTHOG_API_KEY:-}
+      POSTHOG_HOST: ${POSTHOG_HOST:-https://us.i.posthog.com}
+      EMAIL_ENABLED: ${EMAIL_ENABLED:-False}
+      EMAIL_HOST: ${EMAIL_HOST:-}
+      EMAIL_PORT: ${EMAIL_PORT:-587}
+      EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
+      EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
+      EMAIL_FROM_ADDRESS: ${EMAIL_FROM_ADDRESS:-}
+    volumes:
+      - "uploads_data:/app/media"
+    depends_on:
+      - db
+      - cache
+    restart: unless-stopped
+    networks:
+      - futsalnet
+
+  frontend:
+    container_name: "frontend"
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://apiservice:8000}
+      NEXT_PUBLIC_POSTHOG_KEY: ${NEXT_PUBLIC_POSTHOG_KEY:-}
+      NEXT_PUBLIC_POSTHOG_HOST: ${NEXT_PUBLIC_POSTHOG_HOST:-https://us.i.posthog.com}
+      NEXT_PUBLIC_GOOGLE_ENABLED: ${GOOGLE_ENABLED:-false}
+      NEXT_PUBLIC_GITHUB_ENABLED: ${GITHUB_ENABLED:-false}
+      NEXT_PUBLIC_FACEBOOK_ENABLED: ${FACEBOOK_ENABLED:-false}
+    ports:
+      - target: 3000
+        published: 3000
+    depends_on:
+      - apiservice
     restart: unless-stopped
     networks:
       - futsalnet

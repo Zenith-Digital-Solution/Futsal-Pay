@@ -44,12 +44,16 @@ async def assign_role_to_user(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Role not found")
 
     existing = (await session.execute(
-        select(UserRole).where(UserRole.user_id == user_id, UserRole.role_id == role_id)
+        select(UserRole).where(
+            UserRole.user_id == user_id,
+            UserRole.role_id == role_id,
+            UserRole.domain == domain,
+        )
     )).scalar_one_or_none()
     if existing:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Role already assigned to user")
 
-    user_role = UserRole(user_id=user_id, role_id=role_id)
+    user_role = UserRole(user_id=user_id, role_id=role_id, domain=domain)
     session.add(user_role)
     await session.commit()
     await session.refresh(user_role)
@@ -65,7 +69,11 @@ async def remove_role_from_user(
     domain: str = _GLOBAL,
 ) -> bool:
     user_role = (await session.execute(
-        select(UserRole).where(UserRole.user_id == user_id, UserRole.role_id == role_id)
+        select(UserRole).where(
+            UserRole.user_id == user_id,
+            UserRole.role_id == role_id,
+            UserRole.domain == domain,
+        )
     )).scalar_one_or_none()
     if not user_role:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Role not assigned to user")

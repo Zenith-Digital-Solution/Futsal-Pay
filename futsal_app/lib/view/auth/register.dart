@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'bloc/auth_bloc.dart';
 import 'bloc/auth_event.dart';
 import '../../core/dimension.dart';
+import '../../core/social_auth_config.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -228,6 +229,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
             SizedBox(height: Dimension.height(16)),
             // Google Sign-In Button
+            if (SocialAuthConfig.googleEnabled)
             Padding(
               padding: EdgeInsets.symmetric(horizontal: Dimension.width(16)),
               child: SizedBox(

@@ -324,3 +324,65 @@ export function useConfigureGateway() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['payout-gateway'] }),
   });
 }
+
+// ── Ground Closure Hooks ───────────────────────────────────────────────────
+
+export interface GroundClosure {
+  id: number;
+  ground_id: number;
+  start_date: string;
+  end_date: string;
+  reason?: string;
+}
+
+export function useGroundClosures(groundId: number) {
+  return useQuery({
+    queryKey: ['closures', groundId],
+    queryFn: async () => {
+      const { data } = await apiClient.get<GroundClosure[]>(`/futsal/grounds/${groundId}/closures`);
+      return data;
+    },
+    enabled: groundId > 0,
+  });
+}
+
+export function useAddClosure(groundId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: { start_date: string; end_date: string; reason?: string }) => {
+      const { data } = await apiClient.post<GroundClosure>(`/futsal/grounds/${groundId}/closures`, payload);
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['closures', groundId] }),
+  });
+}
+
+export function useRemoveClosure(groundId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (closureId: number) => {
+      await apiClient.delete(`/futsal/grounds/${groundId}/closures/${closureId}`);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['closures', groundId] }),
+  });
+}
+
+export function useDeleteGround() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      await apiClient.delete(`/futsal/grounds/${id}`);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['grounds'] }),
+  });
+}
+
+export function useOwnerBookings(params?: { ground_id?: number; booking_date?: string; status_filter?: string }) {
+  return useQuery({
+    queryKey: ['owner-bookings', params],
+    queryFn: async () => {
+      const { data } = await apiClient.get<import('./use-futsal').Booking[]>('/futsal/bookings/owner', { params });
+      return data;
+    },
+  });
+}

@@ -18,6 +18,7 @@ import {
   CardFooter,
 } from '@/components/ui/card';
 import { startOAuthLogin } from '@/lib/oauth';
+import { SocialAuthButtons } from '@/components/auth/social-auth-buttons';
 
 const signupSchema = z
   .object({
@@ -135,26 +136,7 @@ export function SignupForm() {
             Create account
           </Button>
 
-          <div className="relative w-full">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-white px-2 text-gray-500">Or continue with</span>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-3 w-full">
-            <Button variant="outline" type="button" onClick={() => { track('user_signed_up', { method: 'google' }); startOAuthLogin('google'); }}>
-              Google
-            </Button>
-            <Button variant="outline" type="button" onClick={() => { track('user_signed_up', { method: 'github' }); startOAuthLogin('github'); }}>
-              GitHub
-            </Button>
-            <Button variant="outline" type="button" onClick={() => { track('user_signed_up', { method: 'facebook' }); startOAuthLogin('facebook'); }}>
-              Facebook
-            </Button>
-          </div>
+          <SocialAuthButtons action="user_signed_up" />
 
           <p className="text-sm text-center text-gray-600">
             Already have an account?{' '}

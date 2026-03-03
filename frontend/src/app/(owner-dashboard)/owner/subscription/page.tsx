@@ -19,19 +19,19 @@ import { CheckCircle, Clock, XCircle, AlertTriangle, CreditCard, Zap } from 'luc
 // ── Status badge ───────────────────────────────────────────────────────────
 
 const STATUS_STYLES: Record<SubscriptionStatus, string> = {
-  ACTIVE: 'bg-green-100 text-green-700',
-  TRIALING: 'bg-blue-100 text-blue-700',
-  GRACE: 'bg-yellow-100 text-yellow-700',
-  EXPIRED: 'bg-red-100 text-red-700',
-  CANCELLED: 'bg-gray-100 text-gray-500',
+  active: 'bg-green-100 text-green-700',
+  trialing: 'bg-blue-100 text-blue-700',
+  grace: 'bg-yellow-100 text-yellow-700',
+  expired: 'bg-red-100 text-red-700',
+  cancelled: 'bg-gray-100 text-gray-500',
 };
 
 const STATUS_ICONS: Record<SubscriptionStatus, React.ElementType> = {
-  ACTIVE: CheckCircle,
-  TRIALING: Clock,
-  GRACE: AlertTriangle,
-  EXPIRED: XCircle,
-  CANCELLED: XCircle,
+  active: CheckCircle,
+  trialing: Clock,
+  grace: AlertTriangle,
+  expired: XCircle,
+  cancelled: XCircle,
 };
 
 function StatusBadge({ status }: { status: SubscriptionStatus }) {
@@ -239,8 +239,8 @@ export default function OwnerSubscriptionPage() {
     }
   };
 
-  const isTrialing = subscription?.status === 'TRIALING';
-  const canTrial = !isTrialing && subscription?.status !== 'ACTIVE';
+  const isTrialing = subscription?.status === 'trialing';
+  const canTrial = !isTrialing && subscription?.status !== 'active';
   const endDate = subscription?.trial_ends_at ?? subscription?.current_period_end;
 
   return (

@@ -36,6 +36,13 @@ async def lifespan(app: FastAPI):
     enforcer = await CasbinEnforcer.get_enforcer(engine)
     app.state.casbin_enforcer = enforcer
 
+    # Seed default roles and permissions on first run
+    from src.db.session import get_session as _get_session
+    from src.apps.iam.casbin_init import setup_default_roles_and_permissions
+    async for _session in _get_session():
+        await setup_default_roles_and_permissions(_session)
+        break
+
     # Initialize Redis cache + WebSocket pub/sub in production
     if not settings.DEBUG:
         if settings.REDIS_URL:

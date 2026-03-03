@@ -66,6 +66,16 @@ async def signup(
         db.add(user_profile)
         await db.commit()
 
+        # Auto-assign the "user" global role on every new signup
+        from src.apps.iam.models import Role as RoleModel, UserRole
+        from src.apps.iam.utils.rbac import assign_role_to_user as _assign_role
+        _user_role = (await db.execute(select(RoleModel).where(RoleModel.name == "user"))).scalar_one_or_none()
+        if _user_role and new_user.id:
+            try:
+                await _assign_role(new_user.id, _user_role.id, db, domain="global")
+            except Exception:
+                pass  # role may already be assigned in edge cases
+
         analytics.identify(
             distinct_id=str(new_user.id),
             properties={

@@ -3,7 +3,7 @@ import { apiClient } from '@/lib/api-client';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
-export type SubscriptionStatus = 'ACTIVE' | 'TRIALING' | 'GRACE' | 'EXPIRED' | 'CANCELLED';
+export type SubscriptionStatus = 'active' | 'trialing' | 'grace' | 'expired' | 'cancelled';
 
 export interface SubscriptionPlan {
   id: number;

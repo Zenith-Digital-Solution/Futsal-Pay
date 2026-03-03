@@ -105,3 +105,25 @@ async def get_current_active_superuser(
             detail="The user doesn't have enough privileges"
         )
     return current_user
+
+
+async def get_current_owner_or_superuser(
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+) -> User:
+    """Allow owners (role='owner') and superusers through."""
+    if current_user.is_superuser:
+        return current_user
+    from sqlmodel import select
+    from src.apps.iam.models import UserRole, Role
+    result = await session.execute(
+        select(Role.name)
+        .join(UserRole, UserRole.role_id == Role.id)
+        .where(UserRole.user_id == current_user.id, Role.name == "owner")
+    )
+    if not result.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Owner or superuser access required"
+        )
+    return current_user

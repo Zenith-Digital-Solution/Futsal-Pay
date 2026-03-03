@@ -113,4 +113,15 @@ async def find_or_create_social_user(
     db.add(UserProfile(first_name=first_name, last_name=last_name, user=new_user))
     await db.commit()
     await db.refresh(new_user)
+
+    # Auto-assign the "user" global role on every new social signup
+    from src.apps.iam.models.role import Role as RoleModel
+    from src.apps.iam.utils.rbac import assign_role_to_user as _assign_role
+    _user_role = (await db.execute(select(RoleModel).where(RoleModel.name == "user"))).scalar_one_or_none()
+    if _user_role and new_user.id:
+        try:
+            await _assign_role(new_user.id, _user_role.id, db, domain="global")
+        except Exception:
+            pass  # role may already be assigned in edge cases
+
     return new_user

@@ -1,4 +1,4 @@
-from datetime import date, time
+from datetime import date, time, datetime
 from typing import Optional, List
 from sqlmodel import SQLModel
 from src.apps.futsal.models.ground import GroundType
@@ -128,6 +128,7 @@ class ReviewResponse(SQLModel):
     image_url: Optional[str] = None
     owner_reply: Optional[str] = None
     is_verified: bool
+    created_at: datetime
 
 
 class OwnerReplyCreate(SQLModel):
