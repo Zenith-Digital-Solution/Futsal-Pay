@@ -83,7 +83,8 @@ async def list_users(
 
 @router.get("/me", response_model=UserResponse)
 async def get_current_user_profile(
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Get current user's profile
@@ -95,27 +96,41 @@ async def get_current_user_profile(
     if cached:
         return UserResponse(**cached)
     
-    profile = current_user.profile
+    # Load user with roles eagerly
+    from src.apps.iam.models.role import UserRole, Role
+    stmt = (
+        select(User)
+        .where(User.id == current_user.id)
+        .options(
+            selectinload(User.user_roles).selectinload(UserRole.role),
+        )
+    )
+    result = await db.execute(stmt)
+    user_with_roles = result.scalar_one_or_none() or current_user
+
+    profile = user_with_roles.profile
+    roles = [ur.role.name for ur in (user_with_roles.user_roles or []) if ur.role]
+
     cache_data = {
-        'id': current_user.id,
-        'username': current_user.username,
-        'email': current_user.email,
-        'is_active': current_user.is_active,
-        'is_superuser': current_user.is_superuser,
-        'is_confirmed': current_user.is_confirmed,
-        'otp_enabled': current_user.otp_enabled,
-        'otp_verified': current_user.otp_verified,
+        'id': user_with_roles.id,
+        'username': user_with_roles.username,
+        'email': user_with_roles.email,
+        'is_active': user_with_roles.is_active,
+        'is_superuser': user_with_roles.is_superuser,
+        'is_confirmed': user_with_roles.is_confirmed,
+        'otp_enabled': user_with_roles.otp_enabled,
+        'otp_verified': user_with_roles.otp_verified,
         'first_name': profile.first_name if profile else None,
         'last_name': profile.last_name if profile else None,
         'phone': profile.phone if profile else None,
         'image_url': profile.image_url if profile else None,
         'bio': profile.bio if profile else None,
-        'roles': [],
+        'roles': roles,
     }
     # Cache for 5 minutes
     await RedisCache.set(cache_key, cache_data, ttl=300)
     
-    return current_user
+    return UserResponse(**cache_data)
 
 
 @router.post("/me/avatar", response_model=UserResponse)

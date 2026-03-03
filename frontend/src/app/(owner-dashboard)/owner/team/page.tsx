@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
+import { extractErrorMsg } from '@/lib/error';
 import { useSubscription } from '@/hooks/use-subscription';
 import type { FutsalGround } from '@/hooks/use-futsal';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -121,10 +122,7 @@ function InviteDialog({
           onClose();
         },
         onError: (err: unknown) => {
-          const msg =
-            (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
-            'Failed to send invitation.';
-          onError(msg);
+          onError(extractErrorMsg(err, 'Failed to send invitation.'));
         },
       },
     );

@@ -39,6 +39,10 @@ class OwnerSubscription(SQLModel, table=True):
         foreign_key="payment_transactions.id",
         description="Most recent successful payment"
     )
+    billing_interval: str = Field(
+        default="monthly",
+        description="Billing interval for the current period: monthly | quarterly | yearly"
+    )
     cancel_at_period_end: bool = Field(
         default=False,
         description="When True, cancel at current_period_end instead of renewing"

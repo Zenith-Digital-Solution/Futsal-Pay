@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional, TYPE_CHECKING
-from sqlmodel import Field, SQLModel, Relationship
+from sqlmodel import Field, SQLModel, Relationship, UniqueConstraint
 
 if TYPE_CHECKING:
     from .payout_record import PayoutRecord
@@ -11,11 +11,14 @@ class PayoutLedger(SQLModel, table=True):
     One entry per completed booking. Accumulates until daily payout sweeps it.
     """
     __tablename__ = "payout_ledger"  # type: ignore
+    __table_args__ = (
+        UniqueConstraint("booking_id", name="uq_payout_ledger_booking_id"),
+    )
 
     id: Optional[int] = Field(default=None, primary_key=True)
     ground_id: int = Field(foreign_key="futsal_grounds.id", index=True)
     owner_id: int = Field(foreign_key="user.id", index=True)
-    booking_id: int = Field(foreign_key="bookings.id", unique=True)
+    booking_id: int = Field(foreign_key="bookings.id")
     gross_amount: float = Field(ge=0)
     platform_fee_pct: float = Field(default=5.0, ge=0, le=100)
     platform_fee: float = Field(ge=0)

@@ -323,7 +323,7 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['owner_id'], ['user.id'], ),
     sa.ForeignKeyConstraint(['payout_id'], ['payout_records.id'], ),
     sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('booking_id')
+    sa.UniqueConstraint('booking_id', name='uq_payout_ledger_booking_id')
     )
     with op.batch_alter_table('payout_ledger', schema=None) as batch_op:
         batch_op.create_index(batch_op.f('ix_payout_ledger_ground_id'), ['ground_id'], unique=False)
@@ -347,7 +347,7 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['ground_id'], ['futsal_grounds.id'], ),
     sa.ForeignKeyConstraint(['user_id'], ['user.id'], ),
     sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('booking_id'),
+    sa.UniqueConstraint('booking_id', name='uq_review_booking_id'),
     sa.UniqueConstraint('user_id', 'ground_id', 'booking_id', name='uq_review_booking')
     )
     with op.batch_alter_table('reviews', schema=None) as batch_op:

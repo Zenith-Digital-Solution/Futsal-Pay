@@ -1,10 +1,12 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import axios from 'axios';
 import { useAuth } from '@/hooks/use-auth';
 import { useAnalytics } from '@/hooks/use-analytics';
 import { Button } from '@/components/ui/button';
@@ -17,9 +19,8 @@ import {
   CardContent,
   CardFooter,
 } from '@/components/ui/card';
-import { startOAuthLogin } from '@/lib/oauth';
 import { SocialAuthButtons } from '@/components/auth/social-auth-buttons';
-import { getDashboardPath } from '@/lib/role-routing';
+import { getDashboardPath, getPostLoginPath } from '@/lib/role-routing';
 import { apiClient } from '@/lib/api-client';
 import type { OTPLoginResponse } from '@/types';
 
@@ -30,10 +31,65 @@ const loginSchema = z.object({
 
 type LoginFormData = z.infer<typeof loginSchema>;
 
+const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+
 export function LoginForm() {
   const router = useRouter();
   const { loginAsync, isLoading, loginError } = useAuth();
   const { track } = useAnalytics();
+  const [checking, setChecking] = useState(true);
+
+  // On mount: if a valid access token exists → redirect immediately.
+  // If access token is absent/expired but a refresh token exists → exchange it first.
+  useEffect(() => {
+    let cancelled = false;
+
+    async function checkTokens() {
+      const accessToken  = localStorage.getItem('access_token');
+      const refreshToken = localStorage.getItem('refresh_token');
+
+      // 1. Try the access token first
+      if (accessToken) {
+        try {
+          const { data: user } = await apiClient.get('/users/me/', {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
+          if (!cancelled) router.replace(await getPostLoginPath(user));
+          return;
+        } catch {
+          // access token invalid / expired – fall through to refresh
+        }
+      }
+
+      // 2. Try the refresh token
+      if (refreshToken) {
+        try {
+          const { data } = await axios.post(
+            `${baseURL}/auth/refresh/`,
+            { refresh_token: refreshToken },
+            { params: { set_cookie: false } },
+          );
+          const { access, refresh } = data;
+          localStorage.setItem('access_token', access);
+          localStorage.setItem('refresh_token', refresh);
+          apiClient.defaults.headers.common['Authorization'] = `Bearer ${access}`;
+
+          const { data: user } = await apiClient.get('/users/me/');
+          if (!cancelled) router.replace(await getPostLoginPath(user));
+          return;
+        } catch {
+          // refresh token invalid – clear storage and show login form
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('refresh_token');
+        }
+      }
+
+      if (!cancelled) setChecking(false);
+    }
+
+    checkTokens();
+    return () => { cancelled = true; };
+  }, [router]);
 
   const {
     register,
@@ -51,10 +107,9 @@ export function LoginForm() {
         router.push(`/otp-verify?temp_token=${otpResult.temp_token}`);
       } else {
         track('user_signed_in', { method: 'email' });
-        // Fetch user to determine role-based dashboard redirect
         try {
           const userRes = await apiClient.get('/users/me');
-          router.push(getDashboardPath(userRes.data));
+          router.push(await getPostLoginPath(userRes.data));
         } catch {
           router.push('/dashboard');
         }
@@ -69,6 +124,15 @@ export function LoginForm() {
     const err = loginError as { response?: { data?: { detail?: string } } };
     return err?.response?.data?.detail || 'Invalid username or password. Please try again.';
   };
+
+  // Show a spinner while we're verifying existing tokens
+  if (checking) {
+    return (
+      <div className="flex items-center justify-center min-h-[200px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" />
+      </div>
+    );
+  }
 
   return (
     <Card className="w-full max-w-md">
@@ -123,3 +187,5 @@ export function LoginForm() {
     </Card>
   );
 }
+
+

@@ -10,25 +10,25 @@ import {
 } from '@/hooks/use-subscription';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { extractErrorMsg } from '@/lib/error';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Activity, CheckCircle, Clock, AlertTriangle, XCircle, RefreshCw } from 'lucide-react';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
 const STATUS_STYLES: Record<SubscriptionStatus, string> = {
-  active: 'bg-green-900 text-green-300',
-  trialing: 'bg-blue-900 text-blue-300',
-  grace: 'bg-yellow-900 text-yellow-300',
-  expired: 'bg-red-900 text-red-300',
-  cancelled: 'bg-slate-700 text-slate-400',
+  active:    'bg-green-100 text-green-700',
+  trialing:  'bg-blue-100 text-blue-700',
+  grace:     'bg-yellow-100 text-yellow-700',
+  expired:   'bg-red-100 text-red-700',
+  cancelled: 'bg-gray-100 text-gray-500',
 };
 
 const STATUS_ICONS: Record<SubscriptionStatus, React.ElementType> = {
-  active: CheckCircle,
-  trialing: Clock,
-  grace: AlertTriangle,
-  expired: XCircle,
+  active:    CheckCircle,
+  trialing:  Clock,
+  grace:     AlertTriangle,
+  expired:   XCircle,
   cancelled: XCircle,
 };
 
@@ -99,28 +99,25 @@ function ActivateDialog({
           onClose();
         },
         onError: (err: unknown) => {
-          const msg =
-            (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
-            'Failed to activate subscription.';
-          onError(msg);
+          onError(extractErrorMsg(err, 'Failed to activate subscription.'));
         },
       },
     );
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-sm rounded-xl bg-slate-800 border border-slate-700 p-6 shadow-xl">
-        <h2 className="text-base font-semibold text-white mb-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="w-full max-w-sm rounded-xl bg-white border border-gray-200 p-6 shadow-xl">
+        <h2 className="text-base font-semibold text-gray-900 mb-4">
           Manually Activate — Owner #{subscription.owner_id}
         </h2>
         <div className="space-y-3">
           <div className="space-y-1">
-            <label className="text-sm font-medium text-slate-300">Plan</label>
+            <label className="text-sm font-medium text-gray-700">Plan</label>
             <select
               value={planId}
               onChange={(e) => setPlanId(Number(e.target.value))}
-              className="w-full rounded-md border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               {planOptions.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -134,11 +131,11 @@ function ActivateDialog({
           <Button
             onClick={handleActivate}
             isLoading={activate.isPending}
-            className="flex-1 bg-indigo-600 hover:bg-indigo-700"
+            className="flex-1 bg-blue-600 hover:bg-blue-700"
           >
             Activate
           </Button>
-          <Button variant="outline" onClick={onClose} className="flex-1 border-slate-600 text-slate-300">
+          <Button variant="outline" onClick={onClose} className="flex-1">
             Cancel
           </Button>
         </div>
@@ -150,6 +147,13 @@ function ActivateDialog({
 // ── Main page ──────────────────────────────────────────────────────────────
 
 const ALL_STATUSES: SubscriptionStatus[] = ['active', 'trialing', 'grace', 'expired', 'cancelled'];
+
+const STAT_COLORS: Record<string, string> = {
+  Active:    'text-green-600 bg-green-50',
+  Trialing:  'text-blue-600 bg-blue-50',
+  Expired:   'text-red-600 bg-red-50',
+  Cancelled: 'text-gray-500 bg-gray-100',
+};
 
 export default function AdminSubscriptionsPage() {
   const { data: subscriptions = [], isLoading } = useAllSubscriptions();
@@ -169,7 +173,6 @@ export default function AdminSubscriptionsPage() {
       ? subscriptions
       : subscriptions.filter((s) => s.status === statusFilter);
 
-  // Summary stats
   const counts = ALL_STATUSES.reduce(
     (acc, s) => {
       acc[s] = subscriptions.filter((sub) => sub.status === s).length;
@@ -179,10 +182,10 @@ export default function AdminSubscriptionsPage() {
   );
 
   const statCards = [
-    { label: 'Active', count: counts.active, color: 'text-green-400 bg-green-900' },
-    { label: 'Trialing', count: counts.trialing, color: 'text-blue-400 bg-blue-900' },
-    { label: 'Expired', count: counts.expired, color: 'text-red-400 bg-red-900' },
-    { label: 'Cancelled', count: counts.cancelled, color: 'text-slate-400 bg-slate-700' },
+    { label: 'Active',    count: counts.active },
+    { label: 'Trialing',  count: counts.trialing },
+    { label: 'Expired',   count: counts.expired },
+    { label: 'Cancelled', count: counts.cancelled },
   ];
 
   return (
@@ -192,22 +195,22 @@ export default function AdminSubscriptionsPage() {
       )}
 
       <div>
-        <h1 className="text-2xl font-bold text-white">Subscriptions</h1>
-        <p className="text-indigo-300 mt-1">Manage owner subscriptions</p>
+        <h1 className="text-2xl font-bold text-gray-900">Subscriptions</h1>
+        <p className="text-gray-500 mt-1">Manage owner subscriptions</p>
       </div>
 
       {/* Summary stats */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         {statCards.map((s) => (
-          <Card key={s.label} className="bg-slate-900 border-slate-700">
-            <CardContent className="pt-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-slate-400">{s.label}</p>
-                  <p className="text-3xl font-bold text-white mt-0.5">{s.count}</p>
-                </div>
-                <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${s.color}`}>
+          <Card key={s.label} className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => setStatusFilter(s.label.toLowerCase() as SubscriptionStatus)}>
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className={`rounded-full p-3 ${STAT_COLORS[s.label] ?? 'text-gray-600 bg-gray-100'}`}>
                   <Activity className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">{s.label}</p>
+                  <p className="text-2xl font-bold text-gray-900">{s.count}</p>
                 </div>
               </div>
             </CardContent>
@@ -215,17 +218,17 @@ export default function AdminSubscriptionsPage() {
         ))}
       </div>
 
-      {/* Filter */}
+      {/* Filter pills */}
       <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-sm text-slate-400">Filter:</span>
+        <span className="text-sm text-gray-500">Filter:</span>
         {(['ALL', ...ALL_STATUSES] as const).map((s) => (
           <button
             key={s}
             onClick={() => setStatusFilter(s)}
             className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
               statusFilter === s
-                ? 'bg-indigo-600 text-white'
-                : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
           >
             {s}
@@ -234,65 +237,63 @@ export default function AdminSubscriptionsPage() {
       </div>
 
       {/* Table */}
-      <Card className="bg-slate-900 border-slate-700">
+      <Card>
         <CardHeader>
-          <CardTitle className="text-white text-base">
+          <CardTitle className="text-base text-gray-900">
             Owner Subscriptions
-            <span className="ml-2 text-sm font-normal text-slate-400">({filtered.length})</span>
+            <span className="ml-2 text-sm font-normal text-gray-400">({filtered.length})</span>
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0 overflow-x-auto">
           {isLoading ? (
             <div className="p-4 space-y-2">
               {[1, 2, 3].map((i) => (
-                <Skeleton key={i} className="h-10 w-full bg-slate-800" />
+                <Skeleton key={i} className="h-10 w-full" />
               ))}
             </div>
           ) : filtered.length === 0 ? (
-            <p className="px-4 py-8 text-center text-sm text-slate-500">
+            <p className="px-4 py-8 text-center text-sm text-gray-400">
               No subscriptions found.
             </p>
           ) : (
             <table className="w-full">
               <thead>
-                <tr className="border-b border-slate-700 text-left">
-                  {['Owner ID', 'Plan', 'Status', 'Period End', 'Created', 'Actions'].map(
-                    (col) => (
-                      <th
-                        key={col}
-                        className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-slate-500"
-                      >
-                        {col}
-                      </th>
-                    ),
-                  )}
+                <tr className="border-b border-gray-100 text-left">
+                  {['Owner ID', 'Plan', 'Status', 'Period End', 'Created', 'Actions'].map((col) => (
+                    <th
+                      key={col}
+                      className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-gray-400"
+                    >
+                      {col}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((sub) => (
                   <tr
                     key={sub.owner_id}
-                    className="border-b border-slate-800 hover:bg-slate-800/50 transition-colors"
+                    className="border-b border-gray-50 hover:bg-gray-50 transition-colors"
                   >
-                    <td className="px-4 py-3 text-sm font-mono text-slate-200">{sub.owner_id}</td>
-                    <td className="px-4 py-3 text-sm text-slate-300">
-                      {sub.plan?.name ?? <span className="text-slate-600">—</span>}
+                    <td className="px-4 py-3 text-sm font-mono text-gray-600">{sub.owner_id}</td>
+                    <td className="px-4 py-3 text-sm text-gray-800">
+                      {sub.plan?.name ?? <span className="text-gray-400">—</span>}
                     </td>
                     <td className="px-4 py-3">
                       <StatusBadge status={sub.status} />
                     </td>
-                    <td className="px-4 py-3 text-sm text-slate-400">
+                    <td className="px-4 py-3 text-sm text-gray-500">
                       {sub.current_period_end
                         ? new Date(sub.current_period_end).toLocaleDateString()
                         : '—'}
                     </td>
-                    <td className="px-4 py-3 text-sm text-slate-400">
+                    <td className="px-4 py-3 text-sm text-gray-500">
                       {new Date(sub.created_at).toLocaleDateString()}
                     </td>
                     <td className="px-4 py-3">
                       <button
                         onClick={() => setActivating(sub)}
-                        className="inline-flex items-center gap-1.5 rounded-md bg-indigo-900 px-3 py-1.5 text-xs font-medium text-indigo-300 hover:bg-indigo-800 transition-colors"
+                        className="inline-flex items-center gap-1.5 rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100 transition-colors"
                         title="Manually Activate"
                       >
                         <RefreshCw className="h-3.5 w-3.5" />
@@ -319,3 +320,6 @@ export default function AdminSubscriptionsPage() {
     </div>
   );
 }
+
+
+// ── Types ──────────────────────────────────────────────────────────────────

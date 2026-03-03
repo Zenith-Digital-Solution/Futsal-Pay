@@ -37,6 +37,7 @@ class FutsalGroundBase(SQLModel):
     close_time: time = Field(default=time(22, 0))
     slot_duration_minutes: int = Field(default=60, ge=30, le=180)
     is_active: bool = Field(default=True)
+    disabled_by_limit: bool = Field(default=False, description="True when deactivated due to subscription downgrade")
     is_verified: bool = Field(default=False)
     average_rating: float = Field(default=0.0, ge=0.0, le=5.0)
     rating_count: int = Field(default=0, ge=0)

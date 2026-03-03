@@ -30,6 +30,7 @@ class GroundStaff(SQLModel, table=True):
     invited_by: int = Field(foreign_key="user.id", description="Owner who added this staff member")
     role: StaffRole = Field(default=StaffRole.STAFF)
     is_active: bool = Field(default=True)
+    disabled_by_limit: bool = Field(default=False, description="True when deactivated due to subscription downgrade")
     invite_token: Optional[str] = Field(
         default=None, unique=True, index=True, max_length=64,
         description="One-time token sent by email; cleared after acceptance"

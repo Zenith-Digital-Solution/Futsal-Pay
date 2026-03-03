@@ -41,7 +41,7 @@ export default function PaymentSettingsPage() {
   };
 
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="space-y-6">
       <h1 className="text-2xl font-bold text-gray-900">Payment Gateway Settings</h1>
 
       {gateway && (

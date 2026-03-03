@@ -9,13 +9,19 @@ export interface SubscriptionPlan {
   id: number;
   name: string;
   slug: string;
+  description: string | null;
   price_monthly: number;
+  price_quarterly: number | null;
+  price_yearly: number | null;
   max_grounds: number;
   max_staff: number;
   trial_days: number;
-  features: string[];
+  features: string | string[];  // API returns raw string; parse as needed
   is_active: boolean;
+  is_public: boolean;
 }
+
+export type BillingInterval = 'monthly' | 'quarterly' | 'yearly';
 
 export interface OwnerSubscription {
   status: SubscriptionStatus;
@@ -23,6 +29,7 @@ export interface OwnerSubscription {
   current_period_end: string | null;
   trial_ends_at: string | null;
   cancel_at_period_end: boolean;
+  billing_interval: BillingInterval;
   is_active: boolean;
 }
 
@@ -118,5 +125,59 @@ export function useActivateSubscription() {
       return data;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['subscriptions', 'admin'] }),
+  });
+}
+
+// ── Subscription Usage ─────────────────────────────────────────────────────
+
+export interface GroundUsageItem {
+  id: number;
+  name: string;
+  location: string;
+  is_active: boolean;
+  disabled_by_limit: boolean;
+}
+
+export interface StaffUsageItem {
+  id: number;
+  ground_id: number;
+  invite_email: string;
+  role: string;
+  is_active: boolean;
+  disabled_by_limit: boolean;
+}
+
+export interface SubscriptionUsage {
+  max_grounds: number;
+  max_staff: number;
+  active_grounds: number;
+  active_staff: number;
+  grounds: GroundUsageItem[];
+  staff: StaffUsageItem[];
+  exceeds_grounds: boolean;
+  exceeds_staff: boolean;
+}
+
+export function useSubscriptionUsage() {
+  return useQuery({
+    queryKey: ['subscription', 'usage'],
+    queryFn: async () => {
+      const { data } = await apiClient.get<SubscriptionUsage>('/subscriptions/usage');
+      return data;
+    },
+  });
+}
+
+export function useApplyLimitAdjustment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: { grounds_to_disable: number[]; staff_to_disable: number[] }) => {
+      const { data } = await apiClient.post('/subscriptions/apply-limit-adjustment', payload);
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['subscription'] });
+      qc.invalidateQueries({ queryKey: ['grounds'] });
+    },
   });
 }

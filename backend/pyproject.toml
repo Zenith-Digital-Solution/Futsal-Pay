@@ -55,4 +55,5 @@ start = "uvicorn src.main:app --reload"
 test = "pytest --cov=app tests/"
 initial-migrate = 'alembic revision --autogenerate -m "init"'
 migrate = "alembic upgrade head"
+seed = "python seed.py"
 celery = "celery -A src.apps.core.celery_app worker --loglevel=info"

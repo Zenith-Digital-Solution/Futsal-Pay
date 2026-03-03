@@ -1,12 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { useRoles, useCreateRole, useAssignRole } from '@/hooks/use-rbac';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Shield, UserPlus, Key, Users } from 'lucide-react';
+import { Shield, UserPlus, Key, Users, CheckCircle, XCircle } from 'lucide-react';
 
 const RESOURCES = ['grounds', 'bookings', 'reviews', 'users', 'staff', 'payments', 'reports', 'settings', 'subscriptions', 'payouts'] as const;
 const ACTIONS = ['read', 'write', 'update', 'delete', 'manage'] as const;
@@ -29,7 +29,7 @@ function useCreateUserWithRole() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (payload: CreateUserWithRolePayload) => {
-      const res = await apiClient.post('/roles/users/create-with-role', payload);
+      const res = await apiClient.post('/users/create-with-role', payload);
       return res.data;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['rbac'] }),
@@ -40,7 +40,7 @@ function useCreatePermission() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (payload: { resource: Resource; action: Action; description?: string; ground_id?: number | null }) => {
-      const res = await apiClient.post('/roles/permissions', payload);
+      const res = await apiClient.post('/permissions', payload);
       return res.data;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['rbac', 'permissions'] }),
@@ -55,12 +55,14 @@ export default function AdminRbacPage() {
   const createUserMutation = useCreateUserWithRole();
   const createPermMutation = useCreatePermission();
 
-  const [userForm, setUserForm] = useState({
+  const EMPTY_USER_FORM = {
     username: '', email: '', password: '',
     first_name: '', last_name: '',
     role: 'owner',
     ground_id: '' as string,
-  });
+  };
+
+  const [userForm, setUserForm] = useState(EMPTY_USER_FORM);
 
   const [permForm, setPermForm] = useState({
     resource: RESOURCES[0] as Resource,
@@ -70,9 +72,27 @@ export default function AdminRbacPage() {
   });
 
   const [activeTab, setActiveTab] = useState<'users' | 'permissions'>('users');
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4000);
+  };
 
   return (
     <div className="space-y-6">
+      {/* Toast */}
+      {toast && (
+        <div className={`fixed top-4 right-4 z-50 flex items-center gap-3 rounded-lg px-4 py-3 shadow-lg text-sm font-medium ${
+          toast.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
+        }`}>
+          {toast.type === 'success'
+            ? <CheckCircle className="h-4 w-4 flex-shrink-0" />
+            : <XCircle className="h-4 w-4 flex-shrink-0" />}
+          {toast.message}
+          <button onClick={() => setToast(null)} className="ml-2 text-white/80 hover:text-white">✕</button>
+        </div>
+      )}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">RBAC Management</h1>
         <p className="text-gray-500 mt-1">Manage roles, permissions, and user access</p>
@@ -173,23 +193,28 @@ export default function AdminRbacPage() {
           </div>
           <div className="mt-4">
             <Button
-              onClick={() => createUserMutation.mutate({
-                ...userForm,
-                ground_id: userForm.ground_id ? parseInt(userForm.ground_id) : null,
-              })}
+              onClick={() => createUserMutation.mutate(
+                {
+                  ...userForm,
+                  ground_id: userForm.ground_id ? parseInt(userForm.ground_id) : null,
+                },
+                {
+                  onSuccess: (data: unknown) => {
+                    const d = data as { username?: string; role?: string };
+                    showToast(
+                      `User "${d?.username ?? userForm.username}" created with role "${d?.role ?? userForm.role}".`,
+                      'success',
+                    );
+                    setUserForm(EMPTY_USER_FORM);
+                  },
+                  onError: () => showToast('Failed to create user. Please check the details.', 'error'),
+                },
+              )}
               disabled={createUserMutation.isPending || !userForm.username || !userForm.email || !userForm.password}
             >
               {createUserMutation.isPending ? 'Creating...' : 'Create User'}
             </Button>
           </div>
-          {createUserMutation.isError && (
-            <p className="mt-2 text-sm text-red-600">Failed to create user. Please check the details.</p>
-          )}
-          {createUserMutation.isSuccess && (
-            <p className="mt-2 text-sm text-green-600">
-              User &quot;{(createUserMutation.data as any)?.username}&quot; created with role &quot;{(createUserMutation.data as any)?.role}&quot;.
-            </p>
-          )}
         </div>
       )}
 

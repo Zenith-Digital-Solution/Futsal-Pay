@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlmodel import select, desc, func, col
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timezone
-from src.apps.iam.api.deps import get_current_user, get_db
+from src.apps.iam.api.deps import get_current_user, get_current_active_superuser, get_db
 from src.apps.iam.models.user import User
 from src.apps.iam.models.token_tracking import TokenTracking
 from src.apps.iam.schemas.token_tracking import TokenTrackingResponse
@@ -156,3 +156,57 @@ async def revoke_all_tokens(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred revoking tokens"
         )
+
+
+@router.get("/admin/all", response_model=PaginatedResponse[TokenTrackingResponse])
+async def admin_list_all_tokens(
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=200),
+    user_id: int | None = Query(default=None, description="Filter by user ID"),
+    active_only: bool = Query(default=False, description="Show only active tokens"),
+    _superuser: User = Depends(get_current_active_superuser),
+    db: AsyncSession = Depends(get_db),
+):
+    """Superuser: list all token-tracking records across all users."""
+    conditions = []
+    if user_id is not None:
+        conditions.append(TokenTracking.user_id == user_id)
+    if active_only:
+        conditions.append(TokenTracking.is_active == True)  # noqa: E712
+
+    count_q = select(func.count(col(TokenTracking.id)))
+    data_q = select(TokenTracking).order_by(desc(col(TokenTracking.created_at)))
+    if conditions:
+        count_q = count_q.where(*conditions)
+        data_q = data_q.where(*conditions)
+
+    total = (await db.execute(count_q)).scalar_one()
+    items = (await db.execute(data_q.offset(skip).limit(limit))).scalars().all()
+    return PaginatedResponse[TokenTrackingResponse].create(
+        items=[TokenTrackingResponse.model_validate(t) for t in items],
+        total=total,
+        skip=skip,
+        limit=limit,
+    )
+
+
+@router.post("/admin/revoke/{token_id}")
+async def admin_revoke_token(
+    token_id: str,
+    _superuser: User = Depends(get_current_active_superuser),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, str]:
+    """Superuser: forcibly revoke any token."""
+    tid = decode_id_or_404(token_id)
+    result = await db.execute(select(TokenTracking).where(TokenTracking.id == tid))
+    token = result.scalars().first()
+    if not token:
+        raise HTTPException(status_code=404, detail="Token not found")
+    if not token.is_active:
+        raise HTTPException(status_code=400, detail="Token already revoked")
+    token.is_active = False
+    token.revoked_at = datetime.now(timezone.utc)
+    token.revoke_reason = "Revoked by superuser"
+    await db.commit()
+    await RedisCache.clear_pattern(f"tokens:active:{token.user_id}:*")
+    return {"message": "Token revoked"}

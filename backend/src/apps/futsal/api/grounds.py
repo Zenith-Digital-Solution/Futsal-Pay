@@ -53,6 +53,7 @@ async def _get_ground_or_404(db: AsyncSession, ground_id: int) -> FutsalGround:
 @router.get("", response_model=List[GroundResponse])
 async def list_grounds(
     db: Annotated[AsyncSession, Depends(get_db)],
+    search: Optional[str] = Query(None, description="Search by name or location"),
     location: Optional[str] = Query(None),
     min_price: Optional[float] = Query(None),
     max_price: Optional[float] = Query(None),
@@ -62,6 +63,12 @@ async def list_grounds(
     limit: int = Query(20, ge=1, le=100),
 ):
     stmt = select(FutsalGround).where(FutsalGround.is_active == True)
+    if search:
+        from sqlalchemy import or_
+        stmt = stmt.where(or_(
+            FutsalGround.name.ilike(f"%{search}%"),
+            FutsalGround.location.ilike(f"%{search}%"),
+        ))
     if location:
         stmt = stmt.where(FutsalGround.location.ilike(f"%{location}%"))
     if min_price is not None:
@@ -74,6 +81,19 @@ async def list_grounds(
         stmt = stmt.where(FutsalGround.is_verified == True)
     stmt = stmt.offset(skip).limit(limit)
     result = await db.execute(stmt)
+    return result.scalars().all()
+
+
+@router.get("/my", response_model=List[GroundResponse])
+async def list_my_grounds(
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Owner: list ALL own grounds including disabled-by-limit ones."""
+    result = await db.execute(
+        select(FutsalGround).where(FutsalGround.owner_id == current_user.id)
+        .order_by(FutsalGround.created_at.desc())
+    )
     return result.scalars().all()
 
 
@@ -114,6 +134,35 @@ async def create_ground(
     current_user: Annotated[User, Depends(_owner)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
+    # Enforce max_grounds limit from subscription plan
+    if not current_user.is_superuser:
+        from src.apps.subscription.models.subscription import OwnerSubscription
+        from src.apps.subscription.models.plan import SubscriptionPlan
+        sub_result = await db.execute(
+            select(OwnerSubscription).where(OwnerSubscription.owner_id == current_user.id)
+        )
+        sub = sub_result.scalars().first()
+        if sub:
+            plan = await db.get(SubscriptionPlan, sub.plan_id)
+            if plan:
+                count_result = await db.execute(
+                    select(func.count()).select_from(FutsalGround).where(
+                        FutsalGround.owner_id == current_user.id,
+                        FutsalGround.is_active == True,
+                    )
+                )
+                active_count = count_result.scalar_one()
+                if active_count >= plan.max_grounds:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail={
+                            "code": "ground_limit_reached",
+                            "message": f"Your plan allows a maximum of {plan.max_grounds} active ground(s). Upgrade your plan to add more.",
+                            "max_grounds": plan.max_grounds,
+                            "current_count": active_count,
+                        },
+                    )
+
     ground = FutsalGround(
         **data.model_dump(),
         owner_id=current_user.id,
@@ -251,3 +300,81 @@ async def remove_closure(
         raise HTTPException(status_code=404, detail="Closure not found.")
     await db.delete(closure)
     await db.commit()
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Owner: re-enable a ground that was disabled by subscription limit
+# ──────────────────────────────────────────────────────────────────────────────
+
+@router.post("/{ground_id}/re-enable", response_model=GroundResponse)
+async def re_enable_ground(
+    ground_id: int,
+    current_user: Annotated[User, Depends(_owner)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Owner: re-enable a ground disabled by subscription limit (must be within limit now)."""
+    ground = await _get_ground_or_404(db, ground_id)
+    if ground.owner_id != current_user.id and not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="Not authorized.")
+    if not ground.disabled_by_limit:
+        raise HTTPException(status_code=400, detail="Ground is not disabled by limit.")
+
+    # Check they are still within limit
+    from src.apps.subscription.models.subscription import OwnerSubscription
+    from src.apps.subscription.models.plan import SubscriptionPlan
+    sub_result = await db.execute(
+        select(OwnerSubscription).where(OwnerSubscription.owner_id == current_user.id)
+    )
+    sub = sub_result.scalars().first()
+    if sub:
+        plan = await db.get(SubscriptionPlan, sub.plan_id)
+        if plan:
+            count_result = await db.execute(
+                select(func.count()).select_from(FutsalGround).where(
+                    FutsalGround.owner_id == current_user.id,
+                    FutsalGround.is_active == True,
+                )
+            )
+            active_count = count_result.scalar_one()
+            if active_count >= plan.max_grounds:
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"You are already at your plan's limit of {plan.max_grounds} active ground(s). Disable another ground or upgrade first.",
+                )
+
+    ground.is_active = True
+    ground.disabled_by_limit = False
+    from datetime import datetime
+    ground.updated_at = datetime.utcnow()
+    db.add(ground)
+    await db.commit()
+    await db.refresh(ground)
+    return ground
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Superuser: create a ground on behalf of any owner
+# ──────────────────────────────────────────────────────────────────────────────
+
+class AdminGroundCreate(GroundCreate):
+    owner_id: int  # admin must specify owner
+
+@router.post("/admin/create", response_model=GroundResponse, status_code=status.HTTP_201_CREATED)
+async def admin_create_ground(
+    data: AdminGroundCreate,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Superuser only: create a ground for any owner, bypassing subscription checks."""
+    if not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="Superuser only.")
+    ground_data = data.model_dump(exclude={"owner_id"})
+    ground = FutsalGround(
+        **ground_data,
+        owner_id=data.owner_id,
+        slug=_slugify(data.name),
+    )
+    db.add(ground)
+    await db.commit()
+    await db.refresh(ground)
+    return ground

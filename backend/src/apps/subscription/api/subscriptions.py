@@ -30,11 +30,27 @@ class PlanCreate(BaseModel):
     slug: str
     description: Optional[str] = None
     price_monthly: float
+    price_quarterly: Optional[float] = None
+    price_yearly: Optional[float] = None
     max_grounds: int = 1
     max_staff: int = 2
     trial_days: int = 14
     features: Optional[str] = None
     is_public: bool = True
+
+
+class PlanUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    price_monthly: Optional[float] = None
+    price_quarterly: Optional[float] = None
+    price_yearly: Optional[float] = None
+    max_grounds: Optional[int] = None
+    max_staff: Optional[int] = None
+    trial_days: Optional[int] = None
+    features: Optional[str] = None
+    is_active: Optional[bool] = None
+    is_public: Optional[bool] = None
 
 
 class PlanResponse(BaseModel):
@@ -43,6 +59,8 @@ class PlanResponse(BaseModel):
     slug: str
     description: Optional[str]
     price_monthly: float
+    price_quarterly: Optional[float]
+    price_yearly: Optional[float]
     max_grounds: int
     max_staff: int
     trial_days: int
@@ -57,19 +75,22 @@ class SubscriptionStatusResponse(BaseModel):
     current_period_end: Optional[str]
     trial_ends_at: Optional[str]
     cancel_at_period_end: bool
+    billing_interval: str
     is_active: bool
 
 
 class PaymentInitiateRequest(BaseModel):
     plan_id: int
-    provider: str  # khalti | esewa | stripe
-    return_url: str  # frontend callback URL
+    billing_interval: str = "monthly"  # monthly | quarterly | yearly
+    provider: str = "khalti"           # khalti | esewa | stripe
+    return_url: str                    # frontend callback URL
 
 
 class PaymentVerifyRequest(BaseModel):
     plan_id: int
     transaction_id: int
     provider_token: str  # Khalti token or eSewa refId
+    billing_interval: str = "monthly"  # monthly | quarterly | yearly
 
 
 # ── Public: List Plans ─────────────────────────────────────────────────────────
@@ -83,6 +104,18 @@ async def list_plans(db: AsyncSession = Depends(get_db)):
             SubscriptionPlan.is_public == True,
         )
     )
+    return result.scalars().all()
+
+
+@router.get("/plans/all", response_model=list[PlanResponse])
+async def list_all_plans(
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Superuser only: list all plans including inactive."""
+    if not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="Superuser access required.")
+    result = await db.execute(select(SubscriptionPlan).order_by(SubscriptionPlan.id))
     return result.scalars().all()
 
 
@@ -107,7 +140,7 @@ async def create_plan(
 @router.patch("/plans/{plan_id}", response_model=PlanResponse)
 async def update_plan(
     plan_id: int,
-    data: dict,
+    data: PlanUpdate,
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -117,7 +150,7 @@ async def update_plan(
     plan = await db.get(SubscriptionPlan, plan_id)
     if not plan:
         raise HTTPException(status_code=404, detail="Plan not found.")
-    for key, val in data.items():
+    for key, val in data.model_dump(exclude_unset=True).items():
         if hasattr(plan, key) and key not in ("id", "created_at"):
             setattr(plan, key, val)
     plan.updated_at = datetime.utcnow()
@@ -125,6 +158,24 @@ async def update_plan(
     await db.commit()
     await db.refresh(plan)
     return plan
+
+
+@router.delete("/plans/{plan_id}", status_code=204)
+async def delete_plan(
+    plan_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Superuser only: deactivate (soft-delete) a plan."""
+    if not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="Superuser access required.")
+    plan = await db.get(SubscriptionPlan, plan_id)
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan not found.")
+    plan.is_active = False
+    plan.updated_at = datetime.utcnow()
+    db.add(plan)
+    await db.commit()
 
 
 # ── Superuser: view all subscriptions ────────────────────────────────────────
@@ -171,6 +222,7 @@ async def my_subscription(
         current_period_end=sub.current_period_end.isoformat() if sub and sub.current_period_end else None,
         trial_ends_at=sub.trial_ends_at.isoformat() if sub and sub.trial_ends_at else None,
         cancel_at_period_end=sub.cancel_at_period_end if sub else False,
+        billing_interval=sub.billing_interval if sub else "monthly",
         is_active=is_subscription_active(sub),
     )
 
@@ -189,6 +241,74 @@ async def start_trial_subscription(
         raise HTTPException(status_code=409, detail="You already have a subscription record.")
     sub = await start_trial(db, current_user.id, plan_id)
     return sub
+
+
+# ── Owner: initiate subscription payment ──────────────────────────────────────
+
+@router.post("/initiate-payment")
+async def initiate_subscription_payment(
+    req: PaymentInitiateRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Start a payment for a subscription plan.
+    Returns the provider's payment_url to redirect the user to.
+    """
+    import uuid
+    from src.apps.finance.models.payment import PaymentProvider
+    from src.apps.finance.schemas.payment import InitiatePaymentRequest as ProviderInitRequest
+    from src.apps.finance.api.v1.payment import _get_provider
+
+    # Resolve plan and price
+    plan = await db.get(SubscriptionPlan, req.plan_id)
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan not found.")
+
+    interval = req.billing_interval.lower()
+    if interval == "quarterly":
+        price_npr = plan.price_quarterly or plan.price_monthly * 3
+    elif interval == "yearly":
+        price_npr = plan.price_yearly or plan.price_monthly * 12
+    else:
+        price_npr = plan.price_monthly
+
+    # Convert NPR → paisa (Khalti/eSewa require smallest unit)
+    amount_paisa = int(price_npr * 100)
+
+    # Build a unique order reference
+    order_id = f"SUB-{current_user.id}-{plan.id}-{uuid.uuid4().hex[:8].upper()}"
+    order_name = f"{plan.name} ({interval.capitalize()})"
+
+    try:
+        provider_enum = PaymentProvider(req.provider.lower())
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Unsupported provider: {req.provider}")
+
+    try:
+        provider_svc = _get_provider(provider_enum)
+    except HTTPException:
+        raise HTTPException(status_code=400, detail=f"Payment provider '{req.provider}' is not enabled.")
+
+    provider_req = ProviderInitRequest(
+        provider=provider_enum,
+        amount=amount_paisa,
+        purchase_order_id=order_id,
+        purchase_order_name=order_name,
+        return_url=req.return_url,
+        website_url="",
+        customer_name=current_user.username,
+        customer_email=current_user.email,
+    )
+
+    try:
+        result = await provider_svc.initiate_payment(provider_req, db)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Payment provider error: {exc}")
+
+    return result
 
 
 # ── Owner: verify payment and activate ────────────────────────────────────────
@@ -214,8 +334,25 @@ async def verify_payment_and_activate(
             detail="Payment has not been completed. Please complete the payment first.",
         )
 
-    sub = await activate_subscription(db, current_user.id, req.plan_id, req.transaction_id)
-    return {"message": "Subscription activated.", "subscription": sub}
+    # Detect downgrade: compare old plan limits vs new plan limits
+    old_sub = await get_subscription(db, current_user.id)
+    old_plan = await db.get(SubscriptionPlan, old_sub.plan_id) if old_sub else None
+    new_plan = await db.get(SubscriptionPlan, req.plan_id)
+    is_downgrade = bool(
+        old_plan and new_plan and (
+            new_plan.max_grounds < old_plan.max_grounds or
+            new_plan.max_staff < old_plan.max_staff
+        )
+    )
+
+    sub = await activate_subscription(db, current_user.id, req.plan_id, req.transaction_id, req.billing_interval)
+    return {
+        "message": "Subscription activated.",
+        "subscription": sub,
+        "needs_limit_adjustment": is_downgrade,
+        "new_max_grounds": new_plan.max_grounds if new_plan else None,
+        "new_max_staff": new_plan.max_staff if new_plan else None,
+    }
 
 
 # ── Owner: cancel subscription ─────────────────────────────────────────────────
@@ -229,3 +366,135 @@ async def cancel_my_subscription(
     sub = await cancel_subscription(db, current_user.id, immediately=immediately)
     msg = "Subscription cancelled immediately." if immediately else "Subscription will cancel at end of current period."
     return {"message": msg, "subscription": sub}
+
+
+# ── Owner: subscription usage vs plan limits ──────────────────────────────────
+
+class GroundUsageItem(BaseModel):
+    id: int
+    name: str
+    location: str
+    is_active: bool
+    disabled_by_limit: bool
+
+class StaffUsageItem(BaseModel):
+    id: int
+    ground_id: int
+    invite_email: str
+    role: str
+    is_active: bool
+    disabled_by_limit: bool
+
+class SubscriptionUsageResponse(BaseModel):
+    max_grounds: int
+    max_staff: int
+    active_grounds: int
+    active_staff: int
+    grounds: list[GroundUsageItem]
+    staff: list[StaffUsageItem]
+    exceeds_grounds: bool
+    exceeds_staff: bool
+
+
+@router.get("/usage", response_model=SubscriptionUsageResponse)
+async def get_subscription_usage(
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Owner: current resource usage vs plan limits."""
+    from src.apps.futsal.models.ground import FutsalGround
+    from src.apps.subscription.models.ground_staff import GroundStaff
+    from sqlmodel import select as sel
+
+    sub = await get_subscription(db, current_user.id)
+    plan = await db.get(SubscriptionPlan, sub.plan_id) if sub else None
+    max_grounds = plan.max_grounds if plan else 1
+    max_staff = plan.max_staff if plan else 0
+
+    grounds_result = await db.execute(
+        sel(FutsalGround).where(FutsalGround.owner_id == current_user.id)
+        .order_by(FutsalGround.created_at)
+    )
+    all_grounds = grounds_result.scalars().all()
+
+    staff_result = await db.execute(
+        sel(GroundStaff).join(
+            FutsalGround, GroundStaff.ground_id == FutsalGround.id
+        ).where(FutsalGround.owner_id == current_user.id)
+    )
+    all_staff = staff_result.scalars().all()
+
+    active_grounds = sum(1 for g in all_grounds if g.is_active)
+    active_staff = sum(1 for s in all_staff if s.is_active)
+
+    return SubscriptionUsageResponse(
+        max_grounds=max_grounds,
+        max_staff=max_staff,
+        active_grounds=active_grounds,
+        active_staff=active_staff,
+        grounds=[
+            GroundUsageItem(
+                id=g.id, name=g.name, location=g.location,
+                is_active=g.is_active, disabled_by_limit=g.disabled_by_limit,
+            )
+            for g in all_grounds
+        ],
+        staff=[
+            StaffUsageItem(
+                id=s.id, ground_id=s.ground_id, invite_email=s.invite_email,
+                role=s.role, is_active=s.is_active, disabled_by_limit=s.disabled_by_limit,
+            )
+            for s in all_staff
+        ],
+        exceeds_grounds=active_grounds > max_grounds,
+        exceeds_staff=active_staff > max_staff,
+    )
+
+
+class LimitAdjustmentRequest(BaseModel):
+    grounds_to_disable: list[int] = []   # ground IDs to disable
+    staff_to_disable: list[int] = []     # staff IDs to disable
+
+
+@router.post("/apply-limit-adjustment", status_code=200)
+async def apply_limit_adjustment(
+    req: LimitAdjustmentRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Owner: after a downgrade, select which grounds/staff to disable.
+    Disables selected items and marks them as disabled_by_limit.
+    """
+    from src.apps.futsal.models.ground import FutsalGround
+    from src.apps.subscription.models.ground_staff import GroundStaff
+    from datetime import datetime
+
+    disabled_grounds, disabled_staff = [], []
+
+    for gid in req.grounds_to_disable:
+        ground = await db.get(FutsalGround, gid)
+        if ground and ground.owner_id == current_user.id:
+            ground.is_active = False
+            ground.disabled_by_limit = True
+            ground.updated_at = datetime.utcnow()
+            db.add(ground)
+            disabled_grounds.append(gid)
+
+    for sid in req.staff_to_disable:
+        staff = await db.get(GroundStaff, sid)
+        if staff:
+            # verify the ground belongs to this owner
+            ground = await db.get(FutsalGround, staff.ground_id)
+            if ground and ground.owner_id == current_user.id:
+                staff.is_active = False
+                staff.disabled_by_limit = True
+                db.add(staff)
+                disabled_staff.append(sid)
+
+    await db.commit()
+    return {
+        "message": "Limit adjustment applied.",
+        "disabled_grounds": disabled_grounds,
+        "disabled_staff": disabled_staff,
+    }

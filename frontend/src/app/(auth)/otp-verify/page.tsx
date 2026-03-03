@@ -3,6 +3,8 @@
 import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useVerifyOTP } from '@/hooks/use-auth';
+import { apiClient } from '@/lib/api-client';
+import { getPostLoginPath } from '@/lib/role-routing';
 
 function OTPVerifyPageInner() {
   const router = useRouter();
@@ -20,8 +22,13 @@ function OTPVerifyPageInner() {
     verifyOTP.mutate(
       { otp_code: otpCode, temp_token: tempToken },
       {
-        onSuccess: () => {
-          router.push('/dashboard');
+        onSuccess: async () => {
+          try {
+            const userRes = await apiClient.get('/users/me');
+            router.push(await getPostLoginPath(userRes.data));
+          } catch {
+            router.push('/dashboard');
+          }
         },
         onError: (err: unknown) => {
           const axiosErr = err as { response?: { data?: { detail?: string } } };

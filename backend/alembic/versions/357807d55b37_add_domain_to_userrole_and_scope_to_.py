@@ -35,8 +35,8 @@ def upgrade() -> None:
                existing_nullable=False)
         batch_op.create_index(batch_op.f('ix_permission_created_by_id'), ['created_by_id'], unique=False)
         batch_op.create_index(batch_op.f('ix_permission_ground_id'), ['ground_id'], unique=False)
-        batch_op.create_foreign_key(None, 'user', ['created_by_id'], ['id'])
-        batch_op.create_foreign_key(None, 'futsal_grounds', ['ground_id'], ['id'])
+        batch_op.create_foreign_key('fk_permission_created_by_id_user', 'user', ['created_by_id'], ['id'])
+        batch_op.create_foreign_key('fk_permission_ground_id_futsal_grounds', 'futsal_grounds', ['ground_id'], ['id'])
 
     with op.batch_alter_table('userrole', schema=None) as batch_op:
         batch_op.add_column(sa.Column('domain', sqlmodel.AutoString(length=100), nullable=False, server_default='global'))
@@ -53,8 +53,8 @@ def downgrade() -> None:
         batch_op.drop_column('domain')
 
     with op.batch_alter_table('permission', schema=None) as batch_op:
-        batch_op.drop_constraint(None, type_='foreignkey')
-        batch_op.drop_constraint(None, type_='foreignkey')
+        batch_op.drop_constraint('fk_permission_created_by_id_user', type_='foreignkey')
+        batch_op.drop_constraint('fk_permission_ground_id_futsal_grounds', type_='foreignkey')
         batch_op.drop_index(batch_op.f('ix_permission_ground_id'))
         batch_op.drop_index(batch_op.f('ix_permission_created_by_id'))
         batch_op.alter_column('action',

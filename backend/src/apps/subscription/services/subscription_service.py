@@ -51,15 +51,24 @@ async def start_trial(
     return sub
 
 
+INTERVAL_DAYS = {
+    "monthly": 30,
+    "quarterly": 90,
+    "yearly": 365,
+}
+
+
 async def activate_subscription(
     db: AsyncSession,
     owner_id: int,
     plan_id: int,
     transaction_id: int,
+    billing_interval: str = "monthly",
 ) -> OwnerSubscription:
     """Called after a successful payment. Activates or renews subscription."""
     sub = await get_subscription(db, owner_id)
     today = date.today()
+    period_days = INTERVAL_DAYS.get(billing_interval, 30)
 
     if sub:
         # Renew: extend from current_period_end or today, whichever is later
@@ -67,8 +76,9 @@ async def activate_subscription(
         sub.plan_id = plan_id
         sub.status = SubscriptionStatus.ACTIVE
         sub.current_period_start = start
-        sub.current_period_end = start + timedelta(days=30)
+        sub.current_period_end = start + timedelta(days=period_days)
         sub.last_payment_transaction_id = transaction_id
+        sub.billing_interval = billing_interval
         sub.cancel_at_period_end = False
         sub.updated_at = datetime.utcnow()
     else:
@@ -77,8 +87,9 @@ async def activate_subscription(
             plan_id=plan_id,
             status=SubscriptionStatus.ACTIVE,
             current_period_start=today,
-            current_period_end=today + timedelta(days=30),
+            current_period_end=today + timedelta(days=period_days),
             last_payment_transaction_id=transaction_id,
+            billing_interval=billing_interval,
         )
 
     db.add(sub)
@@ -91,6 +102,7 @@ async def activate_subscription(
         properties={
             "plan_id": plan_id,
             "transaction_id": transaction_id,
+            "billing_interval": billing_interval,
             "period_end": str(sub.current_period_end),
         },
     )

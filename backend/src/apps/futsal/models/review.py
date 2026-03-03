@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 class ReviewBase(SQLModel):
     user_id: int = Field(foreign_key="user.id", index=True)
     ground_id: int = Field(foreign_key="futsal_grounds.id", index=True)
-    booking_id: int = Field(foreign_key="bookings.id", unique=True)
+    booking_id: int = Field(foreign_key="bookings.id")
     rating: int = Field(ge=1, le=5)
     comment: Optional[str] = Field(default=None, max_length=1000)
     image_url: Optional[str] = Field(default=None, max_length=500)
@@ -20,6 +20,7 @@ class ReviewBase(SQLModel):
 class Review(ReviewBase, table=True):
     __tablename__ = "reviews"  # type: ignore
     __table_args__ = (
+        UniqueConstraint("booking_id", name="uq_review_booking_id"),
         UniqueConstraint("user_id", "ground_id", "booking_id", name="uq_review_booking"),
     )
 

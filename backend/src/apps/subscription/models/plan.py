@@ -1,6 +1,7 @@
 """
 Subscription plan model — created and managed by superuser.
-Owners choose a plan and pay monthly to access the owner dashboard.
+Owners choose a plan and pay to access the owner dashboard.
+Supports monthly, quarterly, and yearly billing intervals.
 """
 from datetime import datetime
 from typing import Optional
@@ -15,6 +16,8 @@ class SubscriptionPlan(SQLModel, table=True):
     slug: str = Field(max_length=50, unique=True, index=True)
     description: Optional[str] = Field(default=None, max_length=500)
     price_monthly: float = Field(ge=0, description="Monthly price in NPR (0 = free tier)")
+    price_quarterly: Optional[float] = Field(default=None, ge=0, description="Quarterly price (3 months) in NPR")
+    price_yearly: Optional[float] = Field(default=None, ge=0, description="Yearly price (12 months) in NPR")
     max_grounds: int = Field(default=1, ge=1, description="Max grounds an owner can register")
     max_staff: int = Field(default=2, ge=0, description="Max staff/manager invites")
     trial_days: int = Field(default=0, ge=0, description="Free trial days for new subscribers")
