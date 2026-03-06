@@ -97,23 +97,57 @@ def update_completed_bookings():
 
 @celery_app.task(name="futsal.send_booking_reminders")
 def send_booking_reminders():
-    """Send 24h and 2h reminders for upcoming confirmed bookings."""
+    """Send a 2-hour pre-play reminder for upcoming confirmed bookings (once per booking)."""
     from src.db.session import async_session_factory
     from src.apps.futsal.models.booking import Booking, BookingStatus
+    from src.apps.notification.models.notification import NotificationType
+    from src.apps.notification.schemas.notification import NotificationCreate
+    from src.apps.notification.services.notification import create_notification
 
     async def _run():
         async with async_session_factory() as db:
             from sqlmodel import select
             now = datetime.utcnow()
+            # Window: bookings starting in 1.75 – 2.25 hours that haven't been reminded yet
+            window_start = now + timedelta(hours=1, minutes=45)
+            window_end   = now + timedelta(hours=2, minutes=15)
+
             result = await db.execute(
-                select(Booking).where(Booking.status == BookingStatus.CONFIRMED)
+                select(Booking).where(
+                    Booking.status == BookingStatus.CONFIRMED,
+                    Booking.pre_play_reminder_sent == False,  # noqa: E712
+                )
             )
+            notified = 0
             for booking in result.scalars().all():
                 start_dt = datetime.combine(booking.booking_date, booking.start_time)
-                hours_until = (start_dt - now).total_seconds() / 3600
-                if 23 <= hours_until <= 25 or 1.5 <= hours_until <= 2.5:
-                    # TODO: send notification to booking.user_id
-                    logger.info(f"Reminder sent for booking {booking.id} (in {hours_until:.1f}h)")
+                if not (window_start <= start_dt <= window_end):
+                    continue
+
+                time_str = booking.start_time.strftime("%I:%M %p")
+                await create_notification(
+                    db,
+                    NotificationCreate(
+                        user_id=booking.user_id,
+                        title="⚽ Your match starts in 2 hours!",
+                        body=(
+                            f"Your futsal slot on {booking.booking_date} at {time_str} "
+                            f"is coming up soon. Don't forget your gear!"
+                        ),
+                        type=NotificationType.INFO,
+                        extra_data={
+                            "booking_id": booking.id,
+                            "booking_date": str(booking.booking_date),
+                            "start_time": str(booking.start_time),
+                        },
+                    ),
+                )
+                booking.pre_play_reminder_sent = True
+                db.add(booking)
+                notified += 1
+
+            await db.commit()
+            logger.info(f"Sent pre-play reminders for {notified} bookings.")
 
     asyncio.get_event_loop().run_until_complete(_run())
 
@@ -132,6 +166,6 @@ celery_app.conf.beat_schedule.update({
     },
     "send-booking-reminders": {
         "task": "futsal.send_booking_reminders",
-        "schedule": 3600,  # every hour
+        "schedule": 600,  # every 10 minutes for accurate 2-hour window detection
     },
 })

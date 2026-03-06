@@ -12,9 +12,10 @@ from sqlmodel import select
 
 from src.apps.iam.api.deps import get_current_user, get_db
 from src.apps.iam.models.user import User
+from src.apps.iam.utils.hashid import decode_id_or_404
 from src.apps.futsal.models.ground import FutsalGround
 from src.apps.futsal.models.booking import Booking, BookingStatus
-from src.apps.futsal.schemas import BookingCreate, BookingResponse
+from src.apps.futsal.schemas import BookingCreate, BookingResponse, PendingReviewBooking
 from src.apps.futsal.services.booking_service import (
     create_booking, cancel_booking, complete_booking,
     SlotAlreadyBookedError, SlotLockedError, GroundClosedError, OutsideOperatingHoursError,
@@ -44,7 +45,8 @@ async def create_new_booking(
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     """Create a booking with atomic slot locking (SELECT FOR UPDATE)."""
-    ground = await db.get(FutsalGround, data.ground_id)
+    ground_id_int = decode_id_or_404(data.ground_id)
+    ground = await db.get(FutsalGround, ground_id_int)
     if not ground or not ground.is_active:
         raise HTTPException(status_code=404, detail="Ground not found or inactive.")
 
@@ -88,13 +90,58 @@ async def list_my_bookings(
     return result.scalars().all()
 
 
-@router.get("/bookings/{booking_id}", response_model=BookingResponse)
-async def get_booking(
-    booking_id: int,
+@router.get("/bookings/pending-reviews", response_model=List[PendingReviewBooking])
+async def pending_reviews(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    booking = await _get_booking_or_404(db, booking_id)
+    """Return completed bookings for which the user hasn't written a review yet."""
+    from src.apps.futsal.models.review import Review
+    from src.apps.iam.utils.hashid import encode_id
+
+    # Completed bookings by this user
+    result = await db.execute(
+        select(Booking).where(
+            Booking.user_id == current_user.id,
+            Booking.status == BookingStatus.COMPLETED,
+        ).order_by(Booking.booking_date.desc())
+    )
+    bookings = result.scalars().all()
+
+    pending = []
+    for booking in bookings:
+        # Check if a review exists for this booking
+        existing = await db.execute(
+            select(Review).where(Review.booking_id == booking.id)
+        )
+        if existing.scalars().first():
+            continue  # already reviewed
+
+        ground = await db.get(FutsalGround, booking.ground_id)
+        if not ground:
+            continue
+
+        pending.append(PendingReviewBooking(
+            booking_id=encode_id(booking.id),
+            ground_id=encode_id(ground.id),
+            ground_name=ground.name,
+            ground_location=ground.location,
+            booking_date=booking.booking_date,
+            start_time=booking.start_time,
+            end_time=booking.end_time,
+        ))
+
+    return pending
+
+
+@router.get("/bookings/{booking_id}", response_model=BookingResponse)
+async def get_booking(
+    booking_id: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    bid = decode_id_or_404(booking_id)
+    booking = await _get_booking_or_404(db, bid)
     # Allow user, ground owner, or superuser
     ground = await db.get(FutsalGround, booking.ground_id)
     if (booking.user_id != current_user.id
@@ -106,12 +153,13 @@ async def get_booking(
 
 @router.patch("/bookings/{booking_id}/cancel", response_model=BookingResponse)
 async def cancel_my_booking(
-    booking_id: int,
+    booking_id: str,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
     reason: Optional[str] = None,
 ):
-    booking = await _get_booking_or_404(db, booking_id)
+    bid = decode_id_or_404(booking_id)
+    booking = await _get_booking_or_404(db, bid)
     ground = await db.get(FutsalGround, booking.ground_id)
     is_owner = ground and ground.owner_id == current_user.id
     if booking.user_id != current_user.id and not is_owner and not current_user.is_superuser:
@@ -125,12 +173,13 @@ async def cancel_my_booking(
 
 @router.get("/bookings/{booking_id}/qr")
 async def get_booking_qr(
-    booking_id: int,
+    booking_id: str,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     """Return QR code image (PNG) for the booking."""
-    booking = await _get_booking_or_404(db, booking_id)
+    bid = decode_id_or_404(booking_id)
+    booking = await _get_booking_or_404(db, bid)
     if booking.user_id != current_user.id and not current_user.is_superuser:
         raise HTTPException(status_code=403, detail="Not authorized.")
     if booking.status not in [BookingStatus.CONFIRMED, BookingStatus.PENDING]:
@@ -148,13 +197,14 @@ async def get_booking_qr(
 
 @router.post("/bookings/{booking_id}/checkin", response_model=BookingResponse)
 async def checkin_booking(
-    booking_id: int,
+    booking_id: str,
     qr_token: str,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     """Ground owner scans QR code to check in a player."""
-    booking = await _get_booking_or_404(db, booking_id)
+    bid = decode_id_or_404(booking_id)
+    booking = await _get_booking_or_404(db, bid)
     ground = await db.get(FutsalGround, booking.ground_id)
     if not ground or ground.owner_id != current_user.id and not current_user.is_superuser:
         raise HTTPException(status_code=403, detail="Not authorized.")
@@ -181,7 +231,7 @@ async def checkin_booking(
 
 @router.get("/grounds/{ground_id}/bookings", response_model=List[BookingResponse])
 async def list_ground_bookings(
-    ground_id: int,
+    ground_id: str,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
     booking_date: Optional[date] = Query(None),
@@ -189,13 +239,14 @@ async def list_ground_bookings(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
 ):
-    ground = await db.get(FutsalGround, ground_id)
+    gid = decode_id_or_404(ground_id)
+    ground = await db.get(FutsalGround, gid)
     if not ground:
         raise HTTPException(status_code=404, detail="Ground not found.")
     if ground.owner_id != current_user.id and not current_user.is_superuser:
         raise HTTPException(status_code=403, detail="Not authorized.")
 
-    stmt = select(Booking).where(Booking.ground_id == ground_id)
+    stmt = select(Booking).where(Booking.ground_id == gid)
     if booking_date:
         stmt = stmt.where(Booking.booking_date == booking_date)
     if status_filter:

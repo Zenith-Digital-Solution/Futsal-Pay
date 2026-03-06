@@ -200,6 +200,20 @@ class Settings(BaseSettings):
     POSTHOG_API_KEY: str = ""
     POSTHOG_HOST: str = "https://us.i.posthog.com"
 
+    # ---------------------------------------------------------------------------
+    # Map provider settings
+    #
+    # MAP_PROVIDER selects which tile/SDK is used on the frontend map.
+    # Supported values: "osm" | "mapbox" | "google"
+    #
+    #   osm     — OpenStreetMap via Leaflet (no key required)
+    #   mapbox  — Mapbox GL JS  (set MAPBOX_TOKEN)
+    #   google  — Google Maps JS (set GOOGLE_MAPS_KEY)
+    # ---------------------------------------------------------------------------
+    MAP_PROVIDER: str = "osm"
+    MAPBOX_TOKEN: str = ""
+    GOOGLE_MAPS_KEY: str = ""
+
     # Social auth settings
     GOOGLE_ENABLED: bool = False
     GOOGLE_CLIENT_ID: str = ""

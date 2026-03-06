@@ -47,6 +47,7 @@ class Booking(BookingBase, table=True):
     qr_code: str = Field(default_factory=lambda: str(uuid.uuid4()), unique=True, index=True)
     qr_used: bool = Field(default=False)
     cancelled_at: Optional[datetime] = Field(default=None)
+    pre_play_reminder_sent: bool = Field(default=False, description="True once the 2-hour pre-play reminder has been dispatched")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 

@@ -4,7 +4,7 @@ Subscription API: plan management (superuser) + subscribe/renew/cancel (owner).
 from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
@@ -54,6 +54,8 @@ class PlanUpdate(BaseModel):
 
 
 class PlanResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     name: str
     slug: str
@@ -70,6 +72,8 @@ class PlanResponse(BaseModel):
 
 
 class SubscriptionStatusResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     status: SubscriptionStatus
     plan: Optional[PlanResponse]
     current_period_end: Optional[str]
@@ -371,6 +375,7 @@ async def cancel_my_subscription(
 # ── Owner: subscription usage vs plan limits ──────────────────────────────────
 
 class GroundUsageItem(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: int
     name: str
     location: str
@@ -378,6 +383,7 @@ class GroundUsageItem(BaseModel):
     disabled_by_limit: bool
 
 class StaffUsageItem(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: int
     ground_id: int
     invite_email: str
@@ -386,6 +392,7 @@ class StaffUsageItem(BaseModel):
     disabled_by_limit: bool
 
 class SubscriptionUsageResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     max_grounds: int
     max_staff: int
     active_grounds: int

@@ -6,7 +6,6 @@ from datetime import date, datetime, time, timedelta
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
 
 from src.apps.futsal.models.ground import FutsalGround
 from src.apps.futsal.models.booking import Booking, BookingStatus
@@ -19,7 +18,7 @@ from src.apps.core.analytics import analytics
 LOCK_TTL_MINUTES = 10
 PLATFORM_FEE_PCT = 5.0
 POINTS_PER_100_NPR = 1
-CANCELLATION_GRACE_HOURS = 2
+CANCELLATION_GRACE_HOURS = 1
 
 
 class SlotAlreadyBookedError(Exception):
@@ -153,8 +152,23 @@ async def create_booking(
 ) -> Booking:
     """
     Atomically create a booking.
-    Uses SELECT FOR UPDATE to prevent double-booking race conditions.
+    Uses SELECT FOR UPDATE on the ground row to serialize all concurrent booking
+    attempts for the same ground, making the overlap check race-condition-safe.
+
+    Without this serialization point, two transactions can both pass the overlap
+    check simultaneously (before either has written a booking row), then both
+    create conflicting bookings. Locking the ground row prevents that — the
+    second transaction blocks until the first commits, then sees the new booking.
     """
+    # ── Serialization point ───────────────────────────────────────────────────
+    # Lock the ground row so concurrent booking attempts queue up here.
+    # This is safe because FutsalGround rows always exist; we never INSERT here.
+    await db.execute(
+        select(FutsalGround)
+        .where(FutsalGround.id == ground.id)
+        .with_for_update()
+    )
+
     await _validate_booking_constraints(db, ground, data.booking_date, data.start_time, data.end_time)
     await _check_slot_available(db, ground.id, data.booking_date, data.start_time, data.end_time)
 
@@ -188,13 +202,8 @@ async def create_booking(
         locked_at=datetime.utcnow(),
         expires_at=datetime.utcnow() + timedelta(minutes=LOCK_TTL_MINUTES),
     )
-    try:
-        db.add(lock)
-        await db.flush()
-    except IntegrityError:
-        # Another transaction sneaked in — unique constraint on slot violated
-        await db.rollback()
-        raise SlotLockedError("Slot just became unavailable. Please refresh and try again.")
+    db.add(lock)
+    await db.flush()
 
     await db.commit()
     await db.refresh(booking)
@@ -277,7 +286,7 @@ async def cancel_booking(
         booking_datetime = datetime.combine(booking.booking_date, booking.start_time)
         if datetime.utcnow() > booking_datetime - timedelta(hours=CANCELLATION_GRACE_HOURS):
             raise BookingNotEligibleForCancelError(
-                "Cancellation is only allowed up to 2 hours before the match."
+                "Cancellations must be made at least 1 hour before the match start time."
             )
 
     booking.status = BookingStatus.CANCELLED
