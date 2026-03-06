@@ -12,7 +12,7 @@ import { ArrowLeft, CalendarX } from 'lucide-react';
 
 export default function EditGroundPage() {
   const { id } = useParams<{ id: string }>();
-  const groundId = Number(id);
+  const groundId = id;
   const router = useRouter();
   const { data: ground, isLoading } = useGround(groundId);
   const updateGround = useUpdateGround(groundId);

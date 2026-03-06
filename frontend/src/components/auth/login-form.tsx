@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import axios from 'axios';
 import { useAuth } from '@/hooks/use-auth';
 import { useAnalytics } from '@/hooks/use-analytics';
@@ -35,6 +35,8 @@ const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1
 
 export function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get('redirect');
   const { loginAsync, isLoading, loginError } = useAuth();
   const { track } = useAnalytics();
   const [checking, setChecking] = useState(true);
@@ -54,7 +56,7 @@ export function LoginForm() {
           const { data: user } = await apiClient.get('/users/me/', {
             headers: { Authorization: `Bearer ${accessToken}` },
           });
-          if (!cancelled) router.replace(await getPostLoginPath(user));
+          if (!cancelled) router.replace(redirectTo ?? (await getPostLoginPath(user)));
           return;
         } catch {
           // access token invalid / expired – fall through to refresh
@@ -75,7 +77,7 @@ export function LoginForm() {
           apiClient.defaults.headers.common['Authorization'] = `Bearer ${access}`;
 
           const { data: user } = await apiClient.get('/users/me/');
-          if (!cancelled) router.replace(await getPostLoginPath(user));
+          if (!cancelled) router.replace(redirectTo ?? (await getPostLoginPath(user)));
           return;
         } catch {
           // refresh token invalid – clear storage and show login form
@@ -107,11 +109,15 @@ export function LoginForm() {
         router.push(`/otp-verify?temp_token=${otpResult.temp_token}`);
       } else {
         track('user_signed_in', { method: 'email' });
-        try {
-          const userRes = await apiClient.get('/users/me');
-          router.push(await getPostLoginPath(userRes.data));
-        } catch {
-          router.push('/dashboard');
+        if (redirectTo) {
+          router.push(redirectTo);
+        } else {
+          try {
+            const userRes = await apiClient.get('/users/me');
+            router.push(await getPostLoginPath(userRes.data));
+          } catch {
+            router.push('/dashboard');
+          }
         }
       }
     } catch {
@@ -138,7 +144,11 @@ export function LoginForm() {
     <Card className="w-full max-w-md">
       <CardHeader className="text-center">
         <CardTitle>Welcome back</CardTitle>
-        <CardDescription>Sign in to your account to continue</CardDescription>
+        {redirectTo ? (
+          <CardDescription>Sign in to continue to your booking</CardDescription>
+        ) : (
+          <CardDescription>Sign in to your account to continue</CardDescription>
+        )}
       </CardHeader>
       <form onSubmit={handleSubmit(onSubmit)}>
         <CardContent className="space-y-4">

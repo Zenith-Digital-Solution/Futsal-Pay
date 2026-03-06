@@ -1,21 +1,25 @@
 'use client';
 
 import { useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   useListUsers,
   useUpdateUser,
   useDeleteUser,
 } from '@/hooks/use-users';
+import { apiClient } from '@/lib/api-client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui';
 import { Pagination } from '@/components/ui/pagination';
 import { SearchBar } from '@/components/ui/search-bar';
+import { GroundSearchSelect } from '@/components/ui/ground-search-select';
 import {
   Users, Pencil, Trash2, Check, X, Shield,
 } from 'lucide-react';
 import type { User } from '@/types';
+import type { UserRolesResponse } from '@/types/rbac';
 
 function UserRow({ user, onEdit, onDelete }: {
   user: User;
@@ -86,12 +90,65 @@ function UserRow({ user, onEdit, onDelete }: {
   );
 }
 
+const GROUND_ROLES = ['manager', 'tenant'] as const;
+const GLOBAL_ROLES = ['owner', 'user'] as const;
+const ALL_ASSIGNABLE = [...GLOBAL_ROLES, ...GROUND_ROLES] as const;
+type AssignableRole = typeof ALL_ASSIGNABLE[number];
+
+function useUserRoles(userId: string) {
+  return useQuery({
+    queryKey: ['user-roles-admin', userId],
+    queryFn: async () => {
+      const { data } = await apiClient.get<UserRolesResponse>(`/users/${userId}/roles`);
+      return data;
+    },
+    enabled: !!userId,
+  });
+}
+
+function useAssignRoleAdmin() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: { user_id: string; role_id: string; domain: string }) => {
+      const { data } = await apiClient.post('/users/assign-role', payload);
+      return data;
+    },
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ['user-roles-admin', vars.user_id] });
+      qc.invalidateQueries({ queryKey: ['users'] });
+    },
+  });
+}
+
+function useRolesList() {
+  return useQuery({
+    queryKey: ['roles-list-admin'],
+    queryFn: async () => {
+      const { data } = await apiClient.get('/roles', { params: { limit: 100 } });
+      return (data?.items ?? data) as { id: string; name: string }[];
+    },
+    staleTime: 60_000,
+  });
+}
+
 function EditUserModal({ user, onClose }: { user: User; onClose: () => void }) {
   const updateUser = useUpdateUser();
+  const assignRole = useAssignRoleAdmin();
+  const { data: rolesList = [] } = useRolesList();
+  const { data: userRoles, isLoading: rolesLoading } = useUserRoles(user.id);
+
   const [firstName, setFirstName] = useState(user.first_name ?? '');
   const [lastName, setLastName] = useState(user.last_name ?? '');
   const [isActive, setIsActive] = useState(user.is_active);
   const [isSuperuser, setIsSuperuser] = useState(user.is_superuser);
+
+  // Role assignment form
+  const [assignRoleName, setAssignRoleName] = useState<AssignableRole>('manager');
+  const [assignGroundId, setAssignGroundId] = useState<number | null>(null);
+  const [roleError, setRoleError] = useState<string | null>(null);
+  const [roleSuccess, setRoleSuccess] = useState<string | null>(null);
+
+  const needsGround = GROUND_ROLES.includes(assignRoleName as any);
 
   const handleSave = () => {
     updateUser.mutate(
@@ -100,45 +157,116 @@ function EditUserModal({ user, onClose }: { user: User; onClose: () => void }) {
     );
   };
 
+  const handleAssignRole = () => {
+    setRoleError(null);
+    setRoleSuccess(null);
+    if (needsGround && !assignGroundId) {
+      setRoleError('Please select a ground for this role.');
+      return;
+    }
+    const roleEntry = rolesList.find((r) => r.name === assignRoleName);
+    if (!roleEntry) { setRoleError(`Role "${assignRoleName}" not found.`); return; }
+    const domain = needsGround ? `ground:${assignGroundId}` : 'global';
+    assignRole.mutate(
+      { user_id: user.id, role_id: roleEntry.id, domain },
+      {
+        onSuccess: () => {
+          setRoleSuccess(`Role "${assignRoleName}" assigned successfully.`);
+          setAssignGroundId(null);
+          setTimeout(() => setRoleSuccess(null), 3000);
+        },
+        onError: () => setRoleError('Failed to assign role. It may already be assigned.'),
+      }
+    );
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-xl bg-white dark:bg-slate-900 border dark:border-white/10 shadow-xl p-6">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-4">Edit User — {user.username}</h2>
-        <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <Input
-              placeholder="First name"
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-            />
-            <Input
-              placeholder="Last name"
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-            />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <div className="w-full max-w-lg rounded-xl bg-white dark:bg-slate-900 border dark:border-white/10 shadow-xl overflow-y-auto max-h-[90vh]">
+        <div className="p-6">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-4">Edit User — {user.username}</h2>
+
+          {/* Profile fields */}
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <Input placeholder="First name" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+              <Input placeholder="Last name" value={lastName} onChange={(e) => setLastName(e.target.value)} />
+            </div>
+            <div className="flex items-center gap-6">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="rounded border-gray-300" />
+                <span className="text-sm text-gray-700 dark:text-slate-300">Active</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={isSuperuser} onChange={(e) => setIsSuperuser(e.target.checked)} className="rounded border-gray-300" />
+                <span className="text-sm text-gray-700 dark:text-slate-300">Superuser</span>
+              </label>
+            </div>
           </div>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={isActive}
-              onChange={(e) => setIsActive(e.target.checked)}
-              className="rounded border-gray-300"
-            />
-            <span className="text-sm text-gray-700 dark:text-slate-300">Active</span>
-          </label>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={isSuperuser}
-              onChange={(e) => setIsSuperuser(e.target.checked)}
-              className="rounded border-gray-300"
-            />
-            <span className="text-sm text-gray-700 dark:text-slate-300">Superuser</span>
-          </label>
-        </div>
-        <div className="flex gap-2 mt-5">
-          <Button onClick={handleSave} isLoading={updateUser.isPending}>Save</Button>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
+
+          <div className="flex gap-2 mt-4">
+            <Button onClick={handleSave} isLoading={updateUser.isPending}>Save Profile</Button>
+            <Button variant="outline" onClick={onClose}>Cancel</Button>
+          </div>
+
+          {/* Divider */}
+          <div className="my-5 border-t dark:border-white/10" />
+
+          {/* Current roles */}
+          <div className="mb-4">
+            <p className="text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">Current Roles</p>
+            {rolesLoading ? (
+              <div className="h-6 w-40 bg-gray-100 dark:bg-white/10 rounded animate-pulse" />
+            ) : (userRoles?.roles?.length ?? 0) === 0 ? (
+              <p className="text-xs text-gray-400 dark:text-slate-500">No roles assigned yet.</p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {userRoles?.roles?.map((r, i) => (
+                  <span key={i} className="px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-800">
+                    {typeof r === 'string' ? r : r.name}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Assign role form */}
+          <div className="rounded-xl bg-gray-50 dark:bg-white/5 border dark:border-white/10 p-4 space-y-3">
+            <p className="text-sm font-medium text-gray-700 dark:text-slate-300">Assign Role</p>
+
+            <div>
+              <label className="text-xs text-gray-500 dark:text-slate-400 mb-1 block">Role</label>
+              <select
+                value={assignRoleName}
+                onChange={(e) => { setAssignRoleName(e.target.value as AssignableRole); setAssignGroundId(null); setRoleError(null); }}
+                className="w-full rounded-md border border-gray-200 dark:border-white/10 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                {ALL_ASSIGNABLE.map((r) => (
+                  <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>
+                ))}
+              </select>
+            </div>
+
+            {needsGround && (
+              <GroundSearchSelect
+                label="Ground"
+                value={assignGroundId}
+                onChange={setAssignGroundId}
+                placeholder="Select a ground…"
+              />
+            )}
+
+            {roleError && <p className="text-xs text-red-500">{roleError}</p>}
+            {roleSuccess && <p className="text-xs text-green-600 dark:text-green-400">{roleSuccess}</p>}
+
+            <Button
+              onClick={handleAssignRole}
+              isLoading={assignRole.isPending}
+              className="w-full"
+            >
+              Assign Role
+            </Button>
+          </div>
         </div>
       </div>
     </div>

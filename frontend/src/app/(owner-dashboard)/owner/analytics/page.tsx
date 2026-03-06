@@ -93,9 +93,9 @@ function BookingsTooltip({ active, payload, label }: { active?: boolean; payload
 
 export default function OwnerAnalyticsPage() {
   const { data: grounds = [], isLoading: groundsLoading } = useGrounds();
-  const [selectedGroundId, setSelectedGroundId] = useState<number | null>(null);
+  const [selectedGroundId, setSelectedGroundId] = useState<string | null>(null);
 
-  const groundId = selectedGroundId ?? grounds[0]?.id ?? 0;
+  const groundId = selectedGroundId ?? grounds[0]?.id ?? '';
 
   // Fetch last 200 bookings for analytics
   const { data: bookings = [], isLoading: bookingsLoading } = useGroundBookings(groundId, {});
@@ -207,7 +207,7 @@ export default function OwnerAnalyticsPage() {
         {grounds.length > 1 && (
           <select
             value={selectedGroundId ?? grounds[0]?.id}
-            onChange={(e) => setSelectedGroundId(Number(e.target.value))}
+            onChange={(e) => setSelectedGroundId(e.target.value)}
             className="border rounded-lg px-3 py-2 text-sm bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             {grounds.map((g) => (

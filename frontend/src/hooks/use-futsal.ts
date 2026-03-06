@@ -4,10 +4,10 @@ import { apiClient } from '@/lib/api-client';
 // ── Types ──────────────────────────────────────────────────────────────────
 
 export interface FutsalGround {
-  id: number;
+  id: string;
   name: string;
   slug: string;
-  owner_id: number;
+  owner_id: string;
   location: string;
   latitude?: number;
   longitude?: number;
@@ -37,9 +37,9 @@ export interface Slot {
 }
 
 export interface Booking {
-  id: number;
-  user_id: number;
-  ground_id: number;
+  id: string;
+  user_id: string;
+  ground_id: string;
   booking_date: string;
   start_time: string;
   end_time: string;
@@ -54,10 +54,10 @@ export interface Booking {
 }
 
 export interface Review {
-  id: number;
-  user_id: number;
-  ground_id: number;
-  booking_id: number;
+  id: string;
+  user_id: string;
+  ground_id: string;
+  booking_id: string;
   rating: number;
   comment?: string;
   image_url?: string;
@@ -105,7 +105,7 @@ export function useGrounds(params?: {
   });
 }
 
-export function useGround(id: number) {
+export function useGround(id: string) {
   return useQuery({
     queryKey: ['ground', id],
     queryFn: async () => {
@@ -116,7 +116,7 @@ export function useGround(id: number) {
   });
 }
 
-export function useGroundSlots(groundId: number, date: string) {
+export function useGroundSlots(groundId: string, date: string) {
   return useQuery({
     queryKey: ['slots', groundId, date],
     queryFn: async () => {
@@ -142,7 +142,7 @@ export function useCreateGround() {
   });
 }
 
-export function useUpdateGround(id: number) {
+export function useUpdateGround(id: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (data: Partial<FutsalGround>) => {
@@ -168,7 +168,7 @@ export function useMyBookings(params?: { status_filter?: string }) {
   });
 }
 
-export function useGroundBookings(groundId: number, params?: { booking_date?: string; status_filter?: string }) {
+export function useGroundBookings(groundId: string, params?: { booking_date?: string; status_filter?: string }) {
   return useQuery({
     queryKey: ['ground-bookings', groundId, params],
     queryFn: async () => {
@@ -183,7 +183,7 @@ export function useCreateBooking() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (data: {
-      ground_id: number;
+      ground_id: string;
       booking_date: string;
       start_time: string;
       end_time: string;
@@ -201,7 +201,7 @@ export function useCreateBooking() {
 export function useCancelBooking() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ bookingId, reason }: { bookingId: number; reason?: string }) => {
+    mutationFn: async ({ bookingId, reason }: { bookingId: string; reason?: string }) => {
       const res = await apiClient.patch<Booking>(`/futsal/bookings/${bookingId}/cancel`, null, {
         params: { reason },
       });
@@ -213,7 +213,7 @@ export function useCancelBooking() {
 
 // ── Review Hooks ───────────────────────────────────────────────────────────
 
-export function useGroundReviews(groundId: number) {
+export function useGroundReviews(groundId: string) {
   return useQuery({
     queryKey: ['reviews', groundId],
     queryFn: async () => {
@@ -227,7 +227,7 @@ export function useGroundReviews(groundId: number) {
 export function useReplyToReview() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ reviewId, reply }: { reviewId: number; reply: string }) => {
+    mutationFn: async ({ reviewId, reply }: { reviewId: string; reply: string }) => {
       const res = await apiClient.post<Review>(`/futsal/reviews/${reviewId}/reply`, { reply });
       return res.data;
     },
@@ -328,25 +328,54 @@ export function useConfigureGateway() {
 // ── Ground Closure Hooks ───────────────────────────────────────────────────
 
 export interface GroundClosure {
-  id: number;
-  ground_id: number;
+  id: string;
+  ground_id: string;
   start_date: string;
   end_date: string;
   reason?: string;
+  created_at?: string;
+  cancelled_bookings?: number;
+  total_refund_amount?: number;
 }
 
-export function useGroundClosures(groundId: number) {
+export interface ClosurePreview {
+  affected_count: number;
+  total_refund_amount: number;
+  bookings: {
+    id: string;
+    booking_date: string;
+    start_time: string;
+    end_time: string;
+    status: string;
+    paid_amount: number;
+    user_id: string;
+  }[];
+}
+
+export function useGroundClosures(groundId: string) {
   return useQuery({
     queryKey: ['closures', groundId],
     queryFn: async () => {
       const { data } = await apiClient.get<GroundClosure[]>(`/futsal/grounds/${groundId}/closures`);
       return data;
     },
-    enabled: groundId > 0,
+    enabled: !!groundId,
   });
 }
 
-export function useAddClosure(groundId: number) {
+export function useClosurePreview(groundId: string) {
+  return useMutation({
+    mutationFn: async (payload: { start_date: string; end_date: string }) => {
+      const { data } = await apiClient.get<ClosurePreview>(
+        `/futsal/grounds/${groundId}/closures/preview`,
+        { params: payload }
+      );
+      return data;
+    },
+  });
+}
+
+export function useAddClosure(groundId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (payload: { start_date: string; end_date: string; reason?: string }) => {
@@ -357,10 +386,10 @@ export function useAddClosure(groundId: number) {
   });
 }
 
-export function useRemoveClosure(groundId: number) {
+export function useRemoveClosure(groundId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (closureId: number) => {
+    mutationFn: async (closureId: string) => {
       await apiClient.delete(`/futsal/grounds/${groundId}/closures/${closureId}`);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['closures', groundId] }),
@@ -370,14 +399,14 @@ export function useRemoveClosure(groundId: number) {
 export function useDeleteGround() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (id: number) => {
+    mutationFn: async (id: string) => {
       await apiClient.delete(`/futsal/grounds/${id}`);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['grounds'] }),
   });
 }
 
-export function useOwnerBookings(params?: { ground_id?: number; booking_date?: string; status_filter?: string }) {
+export function useOwnerBookings(params?: { ground_id?: string; booking_date?: string; status_filter?: string }) {
   return useQuery({
     queryKey: ['owner-bookings', params],
     queryFn: async () => {

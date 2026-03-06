@@ -18,12 +18,12 @@ function StarRating({ rating }: { rating: number }) {
 
 export default function OwnerReviewsPage() {
   const { data: grounds = [] } = useGrounds();
-  const [selectedGroundId, setSelectedGroundId] = useState<number | null>(null);
-  const groundId = selectedGroundId ?? grounds[0]?.id ?? 0;
+  const [selectedGroundId, setSelectedGroundId] = useState<string | null>(null);
+  const groundId = selectedGroundId ?? grounds[0]?.id ?? '';
   const { data: reviews = [], isLoading } = useGroundReviews(groundId);
   const { mutate: reply, isPending } = useReplyToReview();
-  const [replyText, setReplyText] = useState<Record<number, string>>({});
-  const [replyingTo, setReplyingTo] = useState<number | null>(null);
+  const [replyText, setReplyText] = useState<Record<string, string>>({});
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
 
   const avgRating = reviews.length
     ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1)
@@ -37,7 +37,7 @@ export default function OwnerReviewsPage() {
         <select
           className="border rounded-lg px-3 py-2 text-sm"
           value={selectedGroundId ?? ''}
-          onChange={(e) => setSelectedGroundId(e.target.value ? Number(e.target.value) : null)}
+          onChange={(e) => setSelectedGroundId(e.target.value || null)}
         >
           {grounds.map((g) => (
             <option key={g.id} value={g.id}>{g.name}</option>

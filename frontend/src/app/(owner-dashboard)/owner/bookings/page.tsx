@@ -17,10 +17,10 @@ const STATUS_COLORS: Record<string, string> = {
 export default function OwnerBookingsPage() {
   const today = new Date().toISOString().split('T')[0];
   const [selectedDate, setSelectedDate] = useState(today);
-  const [selectedGroundId, setSelectedGroundId] = useState<number | null>(null);
+  const [selectedGroundId, setSelectedGroundId] = useState<string | null>(null);
 
   const { data: grounds = [] } = useGrounds();
-  const groundId = selectedGroundId ?? grounds[0]?.id ?? 0;
+  const groundId = selectedGroundId ?? grounds[0]?.id ?? '';
   const { data: bookings = [], isLoading } = useGroundBookings(groundId, {
     booking_date: selectedDate,
   });
@@ -38,7 +38,7 @@ export default function OwnerBookingsPage() {
         <select
           className="border rounded-lg px-3 py-2 text-sm"
           value={selectedGroundId ?? ''}
-          onChange={(e) => setSelectedGroundId(e.target.value ? Number(e.target.value) : null)}
+          onChange={(e) => setSelectedGroundId(e.target.value || null)}
         >
           {grounds.map((g) => (
             <option key={g.id} value={g.id}>{g.name}</option>

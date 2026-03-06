@@ -11,7 +11,7 @@ import Link from 'next/link';
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface FavouriteGround {
-  id: number;
+  id: string;
   name: string;
   slug: string;
   location: string;
@@ -31,13 +31,13 @@ function GroundCard({
   isRemoving,
 }: {
   ground: FavouriteGround;
-  onUnfavourite: (id: number) => void;
+  onUnfavourite: (id: string) => void;
   isRemoving: boolean;
 }) {
   return (
     <Card className="overflow-hidden hover:shadow-md transition-shadow group">
       {/* Image / placeholder */}
-      <Link href={`/grounds/${ground.slug}`} className="block">
+      <Link href={`/grounds/${ground.id}`} className="block">
         <div className="relative h-40 bg-gradient-to-br from-green-100 to-emerald-200 flex items-center justify-center">
           {ground.image_url ? (
             <img
@@ -56,7 +56,7 @@ function GroundCard({
 
       <CardContent className="p-4">
         <div className="flex items-start justify-between gap-2">
-          <Link href={`/grounds/${ground.slug}`} className="flex-1 min-w-0">
+          <Link href={`/grounds/${ground.id}`} className="flex-1 min-w-0">
             <h3 className="font-semibold text-gray-900 truncate group-hover:text-blue-600 transition-colors">
               {ground.name}
             </h3>
@@ -112,7 +112,7 @@ export default function FavouritesPage() {
   });
 
   const unfavourite = useMutation({
-    mutationFn: async (groundId: number) => {
+    mutationFn: async (groundId: string) => {
       await apiClient.delete(`/futsal/favourites/${groundId}`);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['favourites'] }),

@@ -1,5 +1,6 @@
 'use client';
 
+import { use } from 'react';
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
@@ -21,7 +22,8 @@ const PAYMENT_METHODS = [
 
 type PaymentMethod = (typeof PAYMENT_METHODS)[number]['id'];
 
-export default function BookingPage({ params }: { params: { slug: string } }) {
+export default function BookingPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = use(params);
   const router = useRouter();
   const searchParams = useSearchParams();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -42,17 +44,17 @@ export default function BookingPage({ params }: { params: { slug: string } }) {
 
   useEffect(() => {
     if (_hasHydrated && !isAuthenticated) {
-      router.replace(`/login?redirect=/grounds/${params.slug}/book?ground_id=${groundId}&slot_start=${slotStart}&slot_end=${slotEnd}&date=${date}`);
+      router.replace(`/login?redirect=/grounds/${slug}/book?ground_id=${groundId}&slot_start=${slotStart}&slot_end=${slotEnd}&date=${date}`);
     }
   }, [_hasHydrated, isAuthenticated]);
 
   const { data: ground, isLoading } = useQuery({
-    queryKey: ['ground-slug', params.slug],
+    queryKey: ['ground-slug', slug],
     queryFn: async () => {
-      const { data } = await apiClient.get<FutsalGround>(`/futsal/grounds/${params.slug}`);
+      const { data } = await apiClient.get<FutsalGround>(`/futsal/grounds/${slug}`);
       return data;
     },
-    enabled: !!params.slug,
+    enabled: !!slug,
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -130,7 +132,7 @@ export default function BookingPage({ params }: { params: { slug: string } }) {
       <div className="max-w-2xl mx-auto px-4 py-24 text-center text-gray-400">
         <AlertCircle className="h-12 w-12 mx-auto mb-4 opacity-40" />
         <p className="text-lg font-medium">Invalid booking details.</p>
-        <a href={`/grounds/${params.slug}`}
+        <a href={`/grounds/${slug}`}
           className="inline-flex items-center justify-center font-medium rounded-lg transition-colors border border-gray-300 bg-transparent hover:bg-gray-100 px-4 py-2 mt-4 text-base text-gray-700"
         >
           Back to Ground

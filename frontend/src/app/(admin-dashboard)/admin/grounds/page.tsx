@@ -15,10 +15,10 @@ import {
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface AdminGround {
-  id: number;
+  id: string;
   name: string;
   slug: string;
-  owner_id: number;
+  owner_id: string;
   location: string;
   ground_type: 'indoor' | 'outdoor' | 'hybrid';
   price_per_hour: number;
@@ -50,15 +50,15 @@ export default function AdminGroundsPage() {
   });
 
   const verifyGround = useMutation({
-    mutationFn: async (id: number) => {
-      const { data } = await apiClient.patch(`/futsal/grounds/${id}/verify`);
+    mutationFn: async (id: string) => {
+      const { data } = await apiClient.post(`/futsal/grounds/${id}/verify`);
       return data;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-grounds'] }),
   });
 
   const toggleActive = useMutation({
-    mutationFn: async ({ id, is_active }: { id: number; is_active: boolean }) => {
+    mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
       const { data } = await apiClient.patch(`/futsal/grounds/${id}`, { is_active });
       return data;
     },

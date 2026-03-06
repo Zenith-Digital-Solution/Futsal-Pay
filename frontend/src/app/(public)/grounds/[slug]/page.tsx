@@ -1,5 +1,6 @@
 'use client';
 
+import { use } from 'react';
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
@@ -8,8 +9,9 @@ import { useAuthStore } from '@/store/auth-store';
 import { useAnalytics } from '@/hooks/use-analytics';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { MapPin, Star, Clock, CheckCircle, AlertCircle, Lock } from 'lucide-react';
+import { MapPin, Star, Clock, CheckCircle, AlertCircle, Lock, LogIn, Map } from 'lucide-react';
 import type { FutsalGround, Slot, Review } from '@/hooks/use-futsal';
+import GroundsMap from '@/components/map/grounds-map';
 
 const TYPE_COLORS: Record<string, string> = {
   indoor: 'bg-blue-100 text-blue-700',
@@ -34,6 +36,17 @@ function GroundDetailClient({ slug }: { slug: string }) {
   const today = new Date().toISOString().split('T')[0];
   const [selectedDate, setSelectedDate] = useState(today);
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+
+  // Silently request location for the detail map (no error shown — map works without it)
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => { /* denied — map centres on ground instead */ },
+      { timeout: 8_000 },
+    );
+  }, []);
 
   const { data: ground, isLoading: groundLoading } = useQuery({
     queryKey: ['ground-slug', slug],
@@ -102,9 +115,10 @@ function GroundDetailClient({ slug }: { slug: string }) {
     );
   }
 
+  const bookingPath = `/grounds/${slug}/book?slot_start=${selectedSlot?.start_time}&slot_end=${selectedSlot?.end_time}&date=${selectedDate}&ground_id=${ground?.id}`;
   const bookingHref = isAuthenticated
-    ? `/grounds/${slug}/book?slot_start=${selectedSlot?.start_time}&slot_end=${selectedSlot?.end_time}&date=${selectedDate}&ground_id=${ground.id}`
-    : `/login?redirect=/grounds/${slug}`;
+    ? bookingPath
+    : `/login?redirect=${encodeURIComponent(bookingPath)}`;
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-10">
@@ -186,6 +200,25 @@ function GroundDetailClient({ slug }: { slug: string }) {
               </CardContent>
             </Card>
           </div>
+
+          {/* Location map */}
+          {ground.latitude != null && ground.longitude != null && (
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                <Map className="h-4 w-4 text-green-600" /> Location
+              </h2>
+              <div className="rounded-xl overflow-hidden border border-gray-200 dark:border-white/10">
+                <GroundsMap
+                  grounds={[ground]}
+                  userLocation={userLocation}
+                  height="320px"
+                />
+              </div>
+              <p className="text-xs text-gray-400 mt-1.5 flex items-center gap-1">
+                <MapPin className="h-3 w-3" /> {ground.location}
+              </p>
+            </div>
+          )}
 
           {/* Reviews */}
           <div>
@@ -314,12 +347,20 @@ function GroundDetailClient({ slug }: { slug: string }) {
                   </div>
                 )}
 
+                {/* Guest login notice */}
+                {!isAuthenticated && (
+                  <div className="mt-3 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/40 rounded-lg text-xs text-amber-700 dark:text-amber-300 flex items-start gap-2">
+                    <LogIn className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                    <span>You need to <Link href={`/login?redirect=${encodeURIComponent(bookingPath)}`} className="underline font-semibold">sign in</Link> to book a slot. Browsing is free!</span>
+                  </div>
+                )}
+
                   {selectedSlot ? (
                     <Link
                       href={bookingHref}
-                      className="w-full mt-4 inline-flex items-center justify-center font-medium rounded-lg transition-colors bg-green-600 hover:bg-green-700 text-white px-4 py-2"
+                      className="w-full mt-4 inline-flex items-center justify-center gap-2 font-medium rounded-lg transition-colors bg-green-600 hover:bg-green-700 text-white px-4 py-2"
                     >
-                      Book Now
+                      {isAuthenticated ? 'Book Now' : <><LogIn className="h-4 w-4" /> Login to Book</>}
                     </Link>
                   ) : (
                     <button
@@ -338,6 +379,7 @@ function GroundDetailClient({ slug }: { slug: string }) {
   );
 }
 
-export default function GroundDetailPage({ params }: { params: { slug: string } }) {
-  return <GroundDetailClient slug={params.slug} />;
+export default function GroundDetailPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = use(params);
+  return <GroundDetailClient slug={slug} />;
 }

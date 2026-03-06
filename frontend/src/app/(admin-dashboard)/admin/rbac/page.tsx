@@ -6,6 +6,7 @@ import { apiClient } from '@/lib/api-client';
 import { useRoles, useCreateRole, useAssignRole } from '@/hooks/use-rbac';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { GroundSearchSelect } from '@/components/ui/ground-search-select';
 import { Shield, UserPlus, Key, Users, CheckCircle, XCircle } from 'lucide-react';
 
 const RESOURCES = ['grounds', 'bookings', 'reviews', 'users', 'staff', 'payments', 'reports', 'settings', 'subscriptions', 'payouts'] as const;
@@ -59,7 +60,7 @@ export default function AdminRbacPage() {
     username: '', email: '', password: '',
     first_name: '', last_name: '',
     role: 'owner',
-    ground_id: '' as string,
+    ground_id: null as number | null,
   };
 
   const [userForm, setUserForm] = useState(EMPTY_USER_FORM);
@@ -68,7 +69,7 @@ export default function AdminRbacPage() {
     resource: RESOURCES[0] as Resource,
     action: ACTIONS[0] as Action,
     description: '',
-    ground_id: '' as string,
+    ground_id: null as number | null,
   });
 
   const [activeTab, setActiveTab] = useState<'users' | 'permissions'>('users');
@@ -180,13 +181,11 @@ export default function AdminRbacPage() {
             </div>
             {(userForm.role === 'manager' || userForm.role === 'tenant') && (
               <div>
-                <label className="text-sm font-medium text-gray-700">Ground ID (for manager/tenant)</label>
-                <Input
-                  type="number"
+                <GroundSearchSelect
+                  label="Ground (for manager/tenant)"
                   value={userForm.ground_id}
-                  onChange={(e) => setUserForm({ ...userForm, ground_id: e.target.value })}
-                  placeholder="Ground ID"
-                  className="mt-1"
+                  onChange={(id) => setUserForm({ ...userForm, ground_id: id })}
+                  placeholder="Select a ground…"
                 />
               </div>
             )}
@@ -196,7 +195,7 @@ export default function AdminRbacPage() {
               onClick={() => createUserMutation.mutate(
                 {
                   ...userForm,
-                  ground_id: userForm.ground_id ? parseInt(userForm.ground_id) : null,
+                  ground_id: userForm.ground_id,
                 },
                 {
                   onSuccess: (data: unknown) => {
@@ -213,8 +212,7 @@ export default function AdminRbacPage() {
               disabled={createUserMutation.isPending || !userForm.username || !userForm.email || !userForm.password}
             >
               {createUserMutation.isPending ? 'Creating...' : 'Create User'}
-            </Button>
-          </div>
+            </Button>          </div>
         </div>
       )}
 
@@ -256,15 +254,14 @@ export default function AdminRbacPage() {
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-700">Ground ID (optional, for scoped permissions)</label>
-              <Input
-                type="number"
-                value={permForm.ground_id}
-                onChange={(e) => setPermForm({ ...permForm, ground_id: e.target.value })}
-                placeholder="Leave blank for global"
-                className="mt-1"
-              />
-            </div>
+                <GroundSearchSelect
+                  label="Ground (optional, for scoped permissions)"
+                  value={permForm.ground_id}
+                  onChange={(id) => setPermForm({ ...permForm, ground_id: id })}
+                  placeholder="Leave blank for global"
+                  optional
+                />
+              </div>
           </div>
           <div className="mt-4">
             <Button
@@ -272,7 +269,7 @@ export default function AdminRbacPage() {
                 resource: permForm.resource,
                 action: permForm.action,
                 description: permForm.description,
-                ground_id: permForm.ground_id ? parseInt(permForm.ground_id) : null,
+                ground_id: permForm.ground_id,
               })}
               disabled={createPermMutation.isPending}
             >

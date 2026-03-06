@@ -75,10 +75,10 @@ export default function HomePage() {
 
         {/* Faint court in background */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <CourtSVG className="w-full max-w-3xl text-slate-900 dark:text-white opacity-[0.04]" />
+          <CourtSVG className="w-full max-w-3xl text-emerald-100 dark:text-emerald-100 opacity-[0.18] dark:opacity-[0.22]" />
         </div>
         {/* Subtle color wash */}
-        <div className="absolute bottom-0 right-0 w-[600px] h-[600px] rounded-full bg-emerald-500/5 dark:bg-emerald-500/10 blur-[120px] pointer-events-none" />
+        <div className="absolute bottom-0 right-0 w-150 h-150 rounded-full bg-emerald-500/5 dark:bg-emerald-500/10 blur-[120px] pointer-events-none" />
 
         {/* Top row: issue-number label + location pill */}
         <div className="relative flex items-center justify-between">
@@ -226,7 +226,7 @@ export default function HomePage() {
             the same evening. It&apos;s that simple.&rdquo;
           </blockquote>
           <div className="mt-8 flex items-center gap-4">
-            <div className="w-11 h-11 rounded-full bg-gradient-to-br from-emerald-500 to-cyan-500 flex items-center justify-center text-white font-bold text-sm">R</div>
+            <div className="w-11 h-11 rounded-full bg-linear-to-br from-emerald-500 to-cyan-500 flex items-center justify-center text-white font-bold text-sm">R</div>
             <div>
               <p className="font-semibold text-slate-900 dark:text-white text-sm">Rohan Shrestha</p>
               <p className="text-xs text-slate-400">Regular player · Kathmandu</p>
@@ -239,7 +239,7 @@ export default function HomePage() {
               { q: 'My bookings went up 3x after listing on Futsal Pay. The owner dashboard is everything.',   name: 'Anil M.', role: 'Ground Owner' },
               { q: 'Finally an app built for Nepal. Khalti works perfectly, confirmation is instant.',         name: 'Priya T.', role: 'Team Captain' },
             ].map(({ q, name, role }) => (
-              <div key={name} className="bg-slate-50 dark:bg-white/[0.02] p-8">
+              <div key={name} className="bg-slate-50 dark:bg-white/2 p-8">
                 <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-6 italic">&ldquo;{q}&rdquo;</p>
                 <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">{name} <span className="font-normal text-slate-400">· {role}</span></p>
               </div>
@@ -272,7 +272,7 @@ export default function HomePage() {
       <footer className="border-t border-slate-200 dark:border-white/5 px-6 md:px-14 py-10 bg-white dark:bg-[#060A14]">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-white">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-emerald-500 to-cyan-500 flex items-center justify-center">
+            <div className="w-7 h-7 rounded-lg bg-linear-to-br from-emerald-500 to-cyan-500 flex items-center justify-center">
               <MapPin className="h-3.5 w-3.5 text-white" />
             </div>
             Futsal Pay

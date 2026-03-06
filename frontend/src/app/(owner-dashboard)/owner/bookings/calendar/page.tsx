@@ -32,7 +32,7 @@ function toISO(d: Date) {
   return d.toISOString().split('T')[0];
 }
 
-function DayColumn({ groundId, date }: { groundId: number; date: Date }) {
+function DayColumn({ groundId, date }: { groundId: string; date: Date }) {
   const dateStr = toISO(date);
   const { data: bookings = [], isLoading } = useGroundBookings(groundId, { booking_date: dateStr });
 
@@ -78,10 +78,10 @@ function DayColumn({ groundId, date }: { groundId: number; date: Date }) {
 
 export default function BookingsCalendarPage() {
   const [anchorDate, setAnchorDate] = useState(() => new Date());
-  const [selectedGroundId, setSelectedGroundId] = useState<number | null>(null);
+  const [selectedGroundId, setSelectedGroundId] = useState<string | null>(null);
 
   const { data: grounds = [], isLoading: groundsLoading } = useGrounds();
-  const groundId = selectedGroundId ?? grounds[0]?.id ?? 0;
+  const groundId = selectedGroundId ?? grounds[0]?.id ?? '';
   const weekDates = getWeekDates(anchorDate);
 
   function prevWeek() {
@@ -117,7 +117,7 @@ export default function BookingsCalendarPage() {
           <select
             className="border rounded-lg px-3 py-2 text-sm bg-white"
             value={selectedGroundId ?? ''}
-            onChange={(e) => setSelectedGroundId(e.target.value ? Number(e.target.value) : null)}
+            onChange={(e) => setSelectedGroundId(e.target.value || null)}
           >
             {grounds.map((g) => (
               <option key={g.id} value={g.id}>{g.name}</option>
@@ -144,7 +144,7 @@ export default function BookingsCalendarPage() {
       {/* Calendar grid */}
       <Card className="rounded-xl shadow">
         <CardContent className="p-4">
-          {groundId === 0 ? (
+          {!groundId ? (
             <p className="text-gray-400 text-sm py-8 text-center">Select a ground to view bookings.</p>
           ) : (
             <div className="grid grid-cols-7 gap-2">

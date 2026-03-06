@@ -12,23 +12,23 @@ type AuthEvents = {
 };
 
 type GroundEvents = {
-  ground_viewed:     { ground_id: number; ground_name: string; ground_type: string };
+  ground_viewed:     { ground_id: string; ground_name: string; ground_type: string };
   ground_searched:   { query: string; filters: Record<string, unknown>; result_count: number };
-  ground_favourited: { ground_id: number; action: 'add' | 'remove' };
+  ground_favourited: { ground_id: string; action: 'add' | 'remove' };
 };
 
 type BookingEvents = {
-  slot_selected:       { ground_id: number; date: string; start_time: string; price: number };
-  booking_initiated:   { ground_id: number; date: string; amount: number; payment_method: string };
-  booking_confirmed:   { booking_id: number; ground_id: number; amount: number };
-  booking_cancelled:   { booking_id: number; reason?: string };
-  booking_checkin:     { booking_id: number; ground_id: number };
-  waitlist_joined:     { ground_id: number; slot: string };
+  slot_selected:       { ground_id: string; date: string; start_time: string; price: number };
+  booking_initiated:   { ground_id: string; date: string; amount: number; payment_method: string };
+  booking_confirmed:   { booking_id: string; ground_id: string; amount: number };
+  booking_cancelled:   { booking_id: string; reason?: string };
+  booking_checkin:     { booking_id: string; ground_id: string };
+  waitlist_joined:     { ground_id: string; slot: string };
 };
 
 type PaymentEvents = {
   payment_initiated: { amount: number; provider: 'khalti' | 'esewa' | 'stripe' | 'paypal'; context: 'booking' | 'subscription' };
-  payment_success:   { amount: number; provider: string; context: 'booking' | 'subscription'; transaction_id: number };
+  payment_success:   { amount: number; provider: string; context: 'booking' | 'subscription'; transaction_id: string };
   payment_failed:    { amount: number; provider: string; error?: string };
 };
 
@@ -41,17 +41,17 @@ type SubscriptionEvents = {
 };
 
 type ReviewEvents = {
-  review_submitted:  { ground_id: number; rating: number };
-  review_helpful:    { review_id: number };
+  review_submitted:  { ground_id: string; rating: number };
+  review_helpful:    { review_id: string };
 };
 
 type LoyaltyEvents = {
-  loyalty_points_redeemed: { points: number; booking_id: number };
+  loyalty_points_redeemed: { points: number; booking_id: string };
 };
 
 type StaffEvents = {
-  staff_invited: { ground_id: number; role: 'manager' | 'staff' };
-  staff_invite_accepted: { ground_id: number; role: string };
+  staff_invited: { ground_id: string; role: 'manager' | 'staff' };
+  staff_invite_accepted: { ground_id: string; role: string };
 };
 
 // Union of all events

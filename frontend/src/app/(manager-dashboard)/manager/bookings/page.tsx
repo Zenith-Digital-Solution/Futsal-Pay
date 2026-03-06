@@ -45,12 +45,12 @@ function BookingRow({ booking }: { booking: Booking }) {
 export default function ManagerBookingsPage() {
   const today = new Date().toISOString().split('T')[0];
   const [selectedDate, setSelectedDate] = useState(today);
-  const [selectedGroundId, setSelectedGroundId] = useState<number | null>(null);
+  const [selectedGroundId, setSelectedGroundId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
 
   const { data: groundsData = [] } = useGrounds();
   const grounds = Array.isArray(groundsData) ? groundsData : (groundsData as any)?.items ?? [];
-  const groundId = selectedGroundId ?? grounds[0]?.id ?? 0;
+  const groundId = selectedGroundId ?? grounds[0]?.id ?? '';
   const { data: bookings = [], isLoading } = useGroundBookings(groundId, { booking_date: selectedDate });
 
   const filtered = bookings.filter((b) =>
@@ -68,7 +68,7 @@ export default function ManagerBookingsPage() {
         {grounds.length > 1 && (
           <select
             value={selectedGroundId ?? ''}
-            onChange={(e) => setSelectedGroundId(e.target.value ? Number(e.target.value) : null)}
+            onChange={(e) => setSelectedGroundId(e.target.value || null)}
             className="border rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             {grounds.map((g: any) => (

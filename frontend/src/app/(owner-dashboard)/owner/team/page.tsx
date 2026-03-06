@@ -62,7 +62,7 @@ function useOwnerGrounds() {
   });
 }
 
-function useGroundStaff(groundId: number | null) {
+function useGroundStaff(groundId: string | null) {
   return useQuery({
     queryKey: ['ground-staff', groundId],
     queryFn: async () => {
@@ -73,7 +73,7 @@ function useGroundStaff(groundId: number | null) {
   });
 }
 
-function useInviteStaff(groundId: number) {
+function useInviteStaff(groundId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (payload: { email: string; role: StaffRole }) => {
@@ -84,7 +84,7 @@ function useInviteStaff(groundId: number) {
   });
 }
 
-function useRemoveStaff(groundId: number) {
+function useRemoveStaff(groundId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (staffId: number) => {
@@ -102,7 +102,7 @@ function InviteDialog({
   onSuccess,
   onError,
 }: {
-  groundId: number;
+  groundId: string;
   onClose: () => void;
   onSuccess: () => void;
   onError: (msg: string) => void;
@@ -188,14 +188,14 @@ function RoleBadge({ role }: { role: StaffRole }) {
 export default function OwnerTeamPage() {
   const { data: grounds = [], isLoading: groundsLoading } = useOwnerGrounds();
   const { data: subscription } = useSubscription();
-  const [selectedGroundId, setSelectedGroundId] = useState<number | null>(null);
+  const [selectedGroundId, setSelectedGroundId] = useState<string | null>(null);
   const [showInvite, setShowInvite] = useState(false);
   const [removingStaffId, setRemovingStaffId] = useState<number | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   const activeGroundId = selectedGroundId ?? grounds[0]?.id ?? null;
   const { data: staff = [], isLoading: staffLoading } = useGroundStaff(activeGroundId);
-  const removeStaff = useRemoveStaff(activeGroundId ?? 0);
+  const removeStaff = useRemoveStaff(activeGroundId ?? '');
 
   const maxStaff = subscription?.plan?.max_staff ?? null;
 
@@ -251,7 +251,7 @@ export default function OwnerTeamPage() {
           <label className="text-sm font-medium text-gray-700">Ground:</label>
           <select
             value={activeGroundId ?? ''}
-            onChange={(e) => setSelectedGroundId(Number(e.target.value))}
+            onChange={(e) => setSelectedGroundId(e.target.value || null)}
             className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             {grounds.map((g) => (
