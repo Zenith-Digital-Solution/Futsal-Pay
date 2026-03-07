@@ -75,8 +75,8 @@ class GroundResponse(BaseModel):
     slot_duration_minutes: int
     is_active: bool
     is_verified: bool
-    average_rating: float
-    rating_count: int
+    average_rating: float = 0.0
+    rating_count: int = 0
     amenities: Optional[dict] = None
 
     model_config = {"from_attributes": True}

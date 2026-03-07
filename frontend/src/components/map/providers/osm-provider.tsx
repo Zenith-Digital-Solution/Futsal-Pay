@@ -46,6 +46,8 @@ function makeGroundIcon(name: string) {
   return L.divIcon({
     html: `
       <div style="
+        display:inline-block;
+        transform:translate(-50%, calc(-100% - 8px));
         background:#16a34a;color:#fff;
         border-radius:8px;padding:5px 10px;
         font-size:11px;font-weight:700;
@@ -53,8 +55,11 @@ function makeGroundIcon(name: string) {
         box-shadow:0 2px 8px rgba(0,0,0,0.35);
         border:2px solid white;
         position:relative;
+        line-height:1.4;
       ">
-        ⚽ ${label}
+        <span style="display:inline-flex;align-items:center;gap:4px;">
+          <span style="font-size:13px;line-height:1;">⚽</span>${label}
+        </span>
         <div style="
           position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);
           width:0;height:0;
@@ -64,8 +69,9 @@ function makeGroundIcon(name: string) {
         "></div>
       </div>`,
     className: '',
-    iconAnchor: [0, 38],
-    popupAnchor: [0, -40],
+    iconSize: [0, 0],
+    iconAnchor: [0, 0],
+    popupAnchor: [0, -46],
   });
 }
 

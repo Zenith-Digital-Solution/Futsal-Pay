@@ -6,6 +6,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from sqlmodel import select
 
 from src.apps.iam.api.deps import get_db, get_current_user as get_current_active_user
@@ -193,8 +194,23 @@ async def list_all_subscriptions(
 ):
     if not current_user.is_superuser:
         raise HTTPException(status_code=403, detail="Superuser access required.")
-    result = await db.execute(select(OwnerSubscription).offset(skip).limit(limit))
-    return result.scalars().all()
+    result = await db.execute(
+        select(OwnerSubscription)
+        .options(selectinload(OwnerSubscription.plan))
+        .offset(skip)
+        .limit(limit)
+    )
+    subs = result.scalars().all()
+    return [
+        {
+            "owner_id": s.owner_id,
+            "plan": s.plan,
+            "status": s.status,
+            "current_period_end": s.current_period_end.isoformat() if s.current_period_end else None,
+            "created_at": s.created_at.isoformat(),
+        }
+        for s in subs
+    ]
 
 
 @router.patch("/admin/{owner_id}/activate", tags=["admin"])

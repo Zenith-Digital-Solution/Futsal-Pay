@@ -188,7 +188,7 @@ function BookingCard({
               <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" />{booking.start_time} – {booking.end_time}</span>
             </div>
 
-            <p className="mt-2 text-sm font-medium text-green-700">NPR {booking.total_amount.toLocaleString()}</p>
+            <p className="mt-2 text-sm font-medium text-green-700">NPR {(booking.total_amount ?? 0).toLocaleString()}</p>
           </div>
 
           {/* Right: actions */}
@@ -249,7 +249,7 @@ export default function MyBookingsPage() {
   const { data: grounds = [] } = useQuery({
     queryKey: ['grounds'],
     queryFn: async () => {
-      const { data } = await apiClient.get('/futsal/grounds', { params: { limit: 200 } });
+      const { data } = await apiClient.get('/futsal/grounds', { params: { limit: 100 } });
       return data as { id: string; name: string; slug: string }[];
     },
   });
@@ -308,7 +308,7 @@ export default function MyBookingsPage() {
             <Calendar className="mx-auto h-12 w-12 text-gray-300 mb-4" />
             <p className="text-gray-500 font-medium">No bookings yet</p>
             <p className="text-sm text-gray-400 mb-6">Book a futsal ground to get started</p>
-            <Link href="/grounds"><Button>Browse Grounds</Button></Link>
+            <Link href="/browse"><Button>Browse Grounds</Button></Link>
           </CardContent>
         </Card>
       ) : (
@@ -322,7 +322,7 @@ export default function MyBookingsPage() {
         </div>
       )}
 
-      {qrTarget && <QrModal qrCode={qrTarget.qr_code} onClose={() => setQrTarget(null)} />}
+      {qrTarget && qrTarget.qr_code && <QrModal qrCode={qrTarget.qr_code} onClose={() => setQrTarget(null)} />}
       {reviewTarget && <ReviewModal booking={reviewTarget} onClose={() => setReviewTarget(null)} />}
 
       <ConfirmDialog

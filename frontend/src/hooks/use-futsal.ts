@@ -23,8 +23,8 @@ export interface FutsalGround {
   slot_duration_minutes: number;
   is_active: boolean;
   is_verified: boolean;
-  average_rating: number;
-  rating_count: number;
+  average_rating: number | null;
+  rating_count: number | null;
   amenities?: Record<string, boolean | string>;
 }
 
@@ -44,11 +44,11 @@ export interface Booking {
   start_time: string;
   end_time: string;
   status: 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'no_show';
-  total_amount: number;
-  paid_amount: number;
+  total_amount: number | null;
+  paid_amount: number | null;
   team_name?: string;
   notes?: string;
-  qr_code: string;
+  qr_code: string | null;
   is_recurring: boolean;
   cancellation_reason?: string;
 }

@@ -19,7 +19,7 @@ import {
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: Home },
   { name: 'My Bookings', href: '/my-bookings', icon: Calendar },
-  { name: 'Browse Grounds', href: '/grounds', icon: MapPin },
+  { name: 'Browse Grounds', href: '/browse', icon: MapPin },
   { name: 'Favourites', href: '/favourites', icon: Heart },
   { name: 'My Reviews', href: '/reviews', icon: Star },
   { name: 'Loyalty Points', href: '/loyalty', icon: Gift },

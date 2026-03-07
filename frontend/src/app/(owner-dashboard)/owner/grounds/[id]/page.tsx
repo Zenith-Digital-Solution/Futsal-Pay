@@ -8,7 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, CalendarX } from 'lucide-react';
+import { ArrowLeft, CalendarX, AlertTriangle, MapPin, Loader2 } from 'lucide-react';
 
 export default function EditGroundPage() {
   const { id } = useParams<{ id: string }>();
@@ -18,6 +18,8 @@ export default function EditGroundPage() {
   const updateGround = useUpdateGround(groundId);
 
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [geoState, setGeoState] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [geoError, setGeoError] = useState<string | null>(null);
   const [form, setForm] = useState({
     name: '',
     location: '',
@@ -63,6 +65,58 @@ export default function EditGroundPage() {
   function showToast(type: 'success' | 'error', message: string) {
     setToast({ type, message });
     setTimeout(() => setToast(null), 3500);
+  }
+
+  function handleGetLocation() {
+    if (!navigator.geolocation) {
+      setGeoState('error');
+      setGeoError('Geolocation is not supported by your browser.');
+      return;
+    }
+    setGeoState('loading');
+    setGeoError(null);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const lat = pos.coords.latitude.toFixed(6);
+        const lon = pos.coords.longitude.toFixed(6);
+        setForm((prev) => ({ ...prev, latitude: lat, longitude: lon }));
+
+        // Reverse geocode via Nominatim (no API key required)
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`,
+            { headers: { 'Accept-Language': 'en' } }
+          );
+          if (res.ok) {
+            const data = await res.json();
+            const addr = data.address ?? {};
+            const parts = [
+              addr.suburb || addr.neighbourhood || addr.village,
+              addr.city || addr.town || addr.county,
+              addr.state,
+            ].filter(Boolean);
+            const locationStr = parts.length > 0 ? parts.join(', ') : (data.display_name ?? '');
+            if (locationStr) {
+              setForm((prev) => ({ ...prev, location: locationStr }));
+            }
+          }
+        } catch {
+          // Reverse geocoding is best-effort; lat/lon already filled
+        }
+        setGeoState('idle');
+      },
+      (err) => {
+        setGeoState('error');
+        if (err.code === err.PERMISSION_DENIED) {
+          setGeoError('Location permission denied. Please allow access and try again.');
+        } else if (err.code === err.POSITION_UNAVAILABLE) {
+          setGeoError('Location unavailable. Please enter coordinates manually.');
+        } else {
+          setGeoError('Could not get location. Please try again.');
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -254,14 +308,40 @@ export default function EditGroundPage() {
               </div>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-1">
-                <label className="text-sm font-medium text-gray-700">Latitude</label>
-                <Input type="number" step="any" value={form.latitude} onChange={(e) => set('latitude', e.target.value)} placeholder="Optional" />
+            <div className="rounded-lg bg-gray-50 p-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-gray-700">Location Coordinates (optional)</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleGetLocation}
+                  disabled={geoState === 'loading'}
+                  className="flex items-center gap-1.5 text-emerald-700 border-emerald-300 hover:bg-emerald-50 hover:border-emerald-400"
+                >
+                  {geoState === 'loading' ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <MapPin className="h-4 w-4" />
+                  )}
+                  {geoState === 'loading' ? 'Getting location…' : 'Get My Location'}
+                </Button>
               </div>
-              <div className="space-y-1">
-                <label className="text-sm font-medium text-gray-700">Longitude</label>
-                <Input type="number" step="any" value={form.longitude} onChange={(e) => set('longitude', e.target.value)} placeholder="Optional" />
+              {geoState === 'error' && geoError && (
+                <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 flex items-center gap-2 text-sm text-red-700">
+                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                  {geoError}
+                </div>
+              )}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-700">Latitude</label>
+                  <Input type="number" step="any" value={form.latitude} onChange={(e) => set('latitude', e.target.value)} placeholder="Optional" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-700">Longitude</label>
+                  <Input type="number" step="any" value={form.longitude} onChange={(e) => set('longitude', e.target.value)} placeholder="Optional" />
+                </div>
               </div>
             </div>
 

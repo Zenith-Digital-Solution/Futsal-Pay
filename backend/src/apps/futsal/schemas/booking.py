@@ -30,11 +30,11 @@ class BookingResponse(BaseModel):
     start_time: time
     end_time: time
     status: str
-    total_amount: float
-    paid_amount: float
+    total_amount: float = 0.0
+    paid_amount: float = 0.0
     team_name: Optional[str] = None
     notes: Optional[str] = None
-    qr_code: str
+    qr_code: Optional[str] = None
     is_recurring: bool
     recurring_type: Optional[str] = None
     recurring_end_date: Optional[date] = None
