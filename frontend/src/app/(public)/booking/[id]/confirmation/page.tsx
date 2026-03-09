@@ -97,10 +97,10 @@ export default function BookingConfirmationPage({ params }: { params: { id: stri
         track('booking_confirmed', {
           booking_id: booking.id,
           ground_id: booking.ground_id,
-          amount: booking.paid_amount,
+          amount: booking.paid_amount ? booking.paid_amount : 0,
         });
         track('payment_success', {
-          amount: booking.paid_amount,
+          amount: booking.paid_amount ? booking.paid_amount : 0,
           provider: 'khalti',
           context: 'booking',
           transaction_id: booking.id,
@@ -178,7 +178,7 @@ export default function BookingConfirmationPage({ params }: { params: { id: stri
             )}
             <div className="border-t pt-2 flex justify-between font-semibold text-gray-900">
               <span>Amount Paid</span>
-              <span className="text-green-700">Rs. {booking.paid_amount.toLocaleString()}</span>
+              <span className="text-green-700">Rs. {booking.paid_amount  ? booking.paid_amount.toLocaleString() : '0'}</span>
             </div>
           </div>
         </CardContent>

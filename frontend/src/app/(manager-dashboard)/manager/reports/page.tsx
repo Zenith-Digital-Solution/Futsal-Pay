@@ -13,7 +13,7 @@ export default function ManagerReportsPage() {
   const { data: todayBookings = [] } = useGroundBookings(primaryGround?.id ?? 0, { booking_date: today });
 
   const confirmed = todayBookings.filter((b) => ['confirmed', 'completed'].includes(b.status));
-  const todayRevenue = confirmed.reduce((s, b) => s + b.total_amount, 0);
+  const todayRevenue = confirmed.reduce((s, b) => s + (b.total_amount ?? 0), 0);
 
   const stats = [
     { label: "Today's Bookings", value: todayBookings.length, icon: Calendar, color: 'text-blue-600 bg-blue-50' },
@@ -70,7 +70,7 @@ export default function ManagerReportsPage() {
                     <p className="text-xs text-gray-500">{b.start_time} – {b.end_time}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-semibold text-gray-900">NPR {b.total_amount.toLocaleString()}</p>
+                    <p className="text-sm font-semibold text-gray-900">NPR {b.total_amount != null ? b.total_amount.toLocaleString() : '—'}</p>
                     <span className="text-xs text-gray-400">{b.status}</span>
                   </div>
                 </div>

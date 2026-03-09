@@ -64,8 +64,8 @@ function toMarkers(grounds: FutsalGround[]) {
       lng: g.longitude!,
       location: g.location,
       description: g.description,
-      average_rating: g.average_rating,
-      rating_count: g.rating_count,
+      average_rating: g.average_rating ?? 0,
+      rating_count: g.rating_count ?? 0,
       price_per_hour: g.price_per_hour,
     }));
 }

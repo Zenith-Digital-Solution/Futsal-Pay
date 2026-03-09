@@ -53,7 +53,7 @@ export default function TenantGroundPage() {
                 </span>
                 <span className="flex items-center gap-1">
                   <Star className="h-4 w-4 text-yellow-400" />
-                  {ground.average_rating.toFixed(1)} rating
+                  { ground.average_rating != null ? ground.average_rating.toFixed(1) : '—' } rating
                 </span>
                 <span className="capitalize px-2 py-0.5 rounded-full text-xs bg-emerald-100 text-emerald-700 font-medium">
                   {ground.ground_type}

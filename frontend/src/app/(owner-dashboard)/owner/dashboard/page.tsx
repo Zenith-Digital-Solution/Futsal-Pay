@@ -19,7 +19,7 @@ export default function OwnerDashboardPage() {
   const confirmedToday = todaysBookings.filter((b) => b.status === 'confirmed').length;
   const revenueToday = todaysBookings
     .filter((b) => ['confirmed', 'completed'].includes(b.status))
-    .reduce((sum, b) => sum + b.total_amount, 0);
+    .reduce((sum, b) => sum + (b.total_amount ?? 0), 0);
 
   const stats = [
     {
@@ -101,7 +101,7 @@ export default function OwnerDashboardPage() {
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="text-sm font-medium text-green-600">
-                      NPR {b.total_amount}
+                      NPR {b.total_amount != null ? b.total_amount.toLocaleString() : '—'}
                     </span>
                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium
                       ${b.status === 'confirmed' ? 'bg-green-100 text-green-700' :

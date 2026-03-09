@@ -142,7 +142,7 @@ function GroundDetailClient({ slug }: { slug: string }) {
               <MapPin className="h-4 w-4 mr-1.5 shrink-0" />
               <span>{ground.location}</span>
             </div>
-            <StarRating rating={ground.average_rating} count={ground.rating_count} />
+            <StarRating rating={ground.average_rating || 0} count={ground.rating_count || 0} />
           </div>
 
           {/* Description */}

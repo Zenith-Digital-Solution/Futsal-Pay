@@ -140,7 +140,7 @@ function GroundCard({ ground, isFav, onToggleFav, isAuthenticated }: {
         </div>
 
         <div className="flex items-center justify-between">
-          <StarRating rating={ground.average_rating} count={ground.rating_count} />
+          <StarRating rating={ground.average_rating || 0} count={ground.rating_count || 0} />
           <div className="flex items-center gap-1 text-xs text-gray-500">
             <Clock className="h-3.5 w-3.5" />
             {ground.open_time.slice(0, 5)} – {ground.close_time.slice(0, 5)}

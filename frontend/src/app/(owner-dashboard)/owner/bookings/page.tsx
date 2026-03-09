@@ -27,7 +27,7 @@ export default function OwnerBookingsPage() {
 
   const totalRevenue = bookings
     .filter((b) => ['confirmed', 'completed'].includes(b.status))
-    .reduce((s, b) => s + b.total_amount, 0);
+    .reduce((s, b) => s + (b.total_amount ?? 0), 0);
 
   return (
     <div className="space-y-6">
@@ -99,8 +99,8 @@ export default function OwnerBookingsPage() {
                     <tr key={b.id}>
                       <td className="py-3 font-medium">{b.start_time} – {b.end_time}</td>
                       <td className="py-3 text-gray-600">{b.team_name || '—'}</td>
-                      <td className="py-3">NPR {b.total_amount}</td>
-                      <td className="py-3">NPR {b.paid_amount}</td>
+                      <td className="py-3">NPR {b.total_amount != null ? b.total_amount.toLocaleString() : '—'}</td>
+                      <td className="py-3">NPR {b.paid_amount != null ? b.paid_amount.toLocaleString() : '—'}</td>
                       <td className="py-3">
                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[b.status] ?? ''}`}>
                           {b.status}

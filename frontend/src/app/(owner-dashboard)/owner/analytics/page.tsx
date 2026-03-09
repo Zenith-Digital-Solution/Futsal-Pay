@@ -33,7 +33,7 @@ function revenueFor(bookings: Booking[], from: string, to: string): number {
       const d = b.booking_date;
       return (b.status === 'confirmed' || b.status === 'completed') && d >= from && d <= to;
     })
-    .reduce((s, b) => s + b.total_amount, 0);
+    .reduce((s, b) => s + (b.total_amount ?? 0), 0);
 }
 
 function hourOf(timeStr: string): number {
@@ -144,7 +144,7 @@ export default function OwnerAnalyticsPage() {
         const h = hourOf(b.start_time);
         if (!hours[h]) hours[h] = { count: 0, revenue: 0 };
         hours[h].count++;
-        hours[h].revenue += b.total_amount;
+        hours[h].revenue += (b.total_amount ?? 0);
       });
     return Object.entries(hours)
       .map(([h, v]) => ({
@@ -476,7 +476,7 @@ export default function OwnerAnalyticsPage() {
                         </span>
                       </td>
                       <td className="px-5 py-3 text-right font-medium text-green-700">
-                        NPR {b.total_amount.toLocaleString()}
+                        NPR {b.total_amount != null ? b.total_amount.toLocaleString() : '—'}
                       </td>
                     </tr>
                   ))}

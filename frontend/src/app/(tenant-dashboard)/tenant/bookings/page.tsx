@@ -78,7 +78,7 @@ export default function TenantBookingsPage() {
                   </div>
                   <div className="flex items-center gap-3">
                     <p className="text-sm font-semibold text-gray-900">
-                      NPR {b.total_amount.toLocaleString()}
+                      NPR {b.total_amount != null ? b.total_amount.toLocaleString() : '—'}
                     </p>
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[b.status] ?? 'bg-gray-100'}`}>
                       {b.status}

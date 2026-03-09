@@ -32,7 +32,7 @@ function BookingRow({ booking }: { booking: Booking }) {
       </div>
       <div className="flex items-center gap-3">
         <p className="text-sm font-semibold text-gray-900">
-          NPR {booking.total_amount.toLocaleString()}
+          NPR {booking.total_amount != null ? booking.total_amount.toLocaleString() : '—'}
         </p>
         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[booking.status] ?? 'bg-gray-100'}`}>
           {booking.status}
