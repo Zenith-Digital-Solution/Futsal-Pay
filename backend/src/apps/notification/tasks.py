@@ -34,17 +34,23 @@ def send_notification_email_task(
 
 @shared_task(name="send_push_notification_task")
 def send_push_notification_task(
-    endpoint: str,
-    p256dh: str,
-    auth: str,
+    tokens: List[str],
     title: str,
     body: str,
-    extra_data: Optional[Dict[str, Any]] = None,
-) -> bool:
-    """Send a Web Push notification to a browser subscription."""
+    data: Optional[Dict[str, Any]] = None,
+    image_url: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Send an FCM push notification to one or more device tokens."""
     from src.apps.notification.services.push_service import send_push_notification
 
-    return send_push_notification(endpoint, p256dh, auth, title, body, extra_data)
+    str_data = {k: str(v) for k, v in (data or {}).items()}
+    return send_push_notification(
+        tokens=tokens,
+        title=title,
+        body=body,
+        data=str_data if str_data else None,
+        image_url=image_url,
+    )
 
 
 @shared_task(name="send_sms_notification_task")

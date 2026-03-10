@@ -73,7 +73,7 @@ async def create_notification(
         await _push_to_email(db, notification)
 
     if pref.push_enabled:
-        await _push_to_web_push(pref, notification)
+        await _push_to_fcm(db, notification)
 
     if pref.sms_enabled:
         await _push_to_sms(db, notification)
@@ -131,29 +131,6 @@ async def _push_to_email(db: AsyncSession, notification: Notification) -> None:
         log.warning("Email push failed for notification id=%s: %s", notification.id, exc)
 
 
-async def _push_to_web_push(
-    pref: NotificationPreference, notification: Notification
-) -> None:
-    """Dispatch a Web Push notification via Celery if a subscription is stored."""
-    if not (pref.push_endpoint and pref.push_p256dh and pref.push_auth):
-        log.debug(
-            "No push subscription stored for user_id=%s — skipping push",
-            notification.user_id,
-        )
-        return
-    try:
-        send_push_notification_task.delay(
-            endpoint=pref.push_endpoint,
-            p256dh=pref.push_p256dh,
-            auth=pref.push_auth,
-            title=notification.title,
-            body=notification.body,
-            extra_data=notification.extra_data if isinstance(notification.extra_data, dict) else None,
-        )
-    except Exception as exc:
-        log.warning("Push task enqueue failed for notification id=%s: %s", notification.id, exc)
-
-
 async def _push_to_sms(db: AsyncSession, notification: Notification) -> None:
     """Dispatch an SMS via Celery using the user's profile phone number."""
     try:
@@ -175,6 +152,36 @@ async def _push_to_sms(db: AsyncSession, notification: Notification) -> None:
         )
     except Exception as exc:
         log.warning("SMS task enqueue failed for notification id=%s: %s", notification.id, exc)
+
+
+async def _push_to_fcm(db: AsyncSession, notification: Notification) -> None:
+    """Dispatch Firebase Cloud Messaging push via Celery to all active device tokens."""
+    try:
+        from src.apps.notification.models.fcm_device import FCMDeviceToken
+
+        result = await db.execute(
+            select(FCMDeviceToken).where(
+                col(FCMDeviceToken.user_id) == notification.user_id,
+                col(FCMDeviceToken.is_active) == True,  # noqa: E712
+            )
+        )
+        tokens = [row.fcm_token for row in result.scalars().all()]
+
+        if not tokens:
+            log.debug(
+                "No active FCM tokens for user_id=%s — skipping FCM push",
+                notification.user_id,
+            )
+            return
+
+        send_push_notification_task.delay(
+            tokens=tokens,
+            title=notification.title,
+            body=notification.body,
+            data=notification.extra_data if isinstance(notification.extra_data, dict) else None,
+        )
+    except Exception as exc:
+        log.warning("FCM task enqueue failed for notification id=%s: %s", notification.id, exc)
 
 
 async def get_user_notifications(

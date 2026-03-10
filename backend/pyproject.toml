@@ -34,6 +34,7 @@ dependencies = [
     "twilio>=9.0.0",
     "cryptography>=46.0.5",
     "posthog>=3.0.0",
+    "firebase-admin>=6.0.0",
 ]
 
 [dependency-groups]
