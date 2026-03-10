@@ -195,6 +195,14 @@ class Settings(BaseSettings):
     TWILIO_AUTH_TOKEN: str = ""
     TWILIO_FROM_NUMBER: str = ""
 
+    # Firebase Cloud Messaging (FCM) push notification settings
+    # Set FCM_ENABLED=True and provide credentials via one of:
+    #   FIREBASE_CREDENTIALS_PATH — absolute path to service-account JSON file
+    #   FIREBASE_CREDENTIALS_JSON — raw JSON string (useful for env-var injection in containers)
+    FCM_ENABLED: bool = False
+    FIREBASE_CREDENTIALS_PATH: str = ""
+    FIREBASE_CREDENTIALS_JSON: str = ""
+
     # PostHog analytics (server-side)
     POSTHOG_ENABLED: bool = False
     POSTHOG_API_KEY: str = ""

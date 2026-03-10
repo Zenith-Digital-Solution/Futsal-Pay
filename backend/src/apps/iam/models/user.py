@@ -10,6 +10,7 @@ if TYPE_CHECKING:
     from src.apps.multitenancy.models.tenant import Tenant, TenantMember, TenantInvitation
     from src.apps.notification.models.notification import Notification
     from src.apps.notification.models.notification_preference import NotificationPreference
+    from src.apps.notification.models.fcm_device import FCMDeviceToken
 
 class UserBase(SQLModel):
     username: str = Field(
@@ -100,6 +101,7 @@ class User(UserBase, table=True):
     )
     notifications: list["Notification"] = Relationship(back_populates="user")
     notification_preference: Optional["NotificationPreference"] = Relationship(back_populates="user")
+    fcm_tokens: list["FCMDeviceToken"] = Relationship(back_populates="user")
 
 
 class UserProfileBase(SQLModel):
