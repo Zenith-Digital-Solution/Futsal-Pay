@@ -17,6 +17,9 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev
 
 # Copy application code
+# note: the host virtual environment (
+# `.venv` ) is ignored via .dockerignore.  the venv is created
+# inside the container by `uv sync` above to avoid conflicts.
 COPY . .
 
 ENV PYTHONPATH=.
