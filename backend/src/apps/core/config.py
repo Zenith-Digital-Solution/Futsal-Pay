@@ -70,8 +70,11 @@ class Settings(BaseSettings):
             return f"redis://{data.get('REDIS_HOST')}:{data.get('REDIS_PORT')}/{data.get('REDIS_DB')}"
 
     # CORS settings
-    BACKEND_CORS_ORIGINS: List[Union[str, AnyHttpUrl]] = ["http://localhost", "http://localhost:3000"]
-
+    BACKEND_CORS_ORIGINS: List[Union[str, AnyHttpUrl]] = [
+    "http://144.126.252.228",
+    "http://144.126.252.228:80",  
+    "http://localhost:3000",        
+]
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")
     def assemble_cors_origins(cls, v: Union[str, List[str]]):
         if isinstance(v, str) and not v.startswith("["):
