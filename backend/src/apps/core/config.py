@@ -71,10 +71,11 @@ class Settings(BaseSettings):
 
     # CORS settings
     BACKEND_CORS_ORIGINS: List[Union[str, AnyHttpUrl]] = [
-    "http://144.126.252.228",
-    "http://144.126.252.228:80",  
-    "http://localhost:3000",      
-    "http://localhost:8000",  
+    # "http://144.126.252.228",
+    # "http://144.126.252.228:80",  
+    # "http://localhost:3000",      
+    # "http://localhost:8000",  
+    "*",
 ]
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")
     def assemble_cors_origins(cls, v: Union[str, List[str]]):
