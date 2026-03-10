@@ -10,7 +10,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/api/v1/:path*',
-        destination: 'http://localhost:8000/api/v1/:path*',
+        destination: 'http://144.126.252.228:8000/api/v1/:path*',
       },
       // PostHog reverse proxy — routes analytics through your domain so
       // ad-blockers don't interfere with event capture.
