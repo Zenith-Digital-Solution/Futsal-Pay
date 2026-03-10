@@ -3,6 +3,8 @@ import type { NextConfig } from 'next';
 const POSTHOG_HOST = process.env.NEXT_PUBLIC_POSTHOG_HOST ?? 'https://us.i.posthog.com';
 
 const nextConfig: NextConfig = {
+  // produce a standalone build output used by the Docker runtime
+  output: 'standalone',
   reactCompiler: true,
   async rewrites() {
     return [
