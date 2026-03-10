@@ -114,6 +114,14 @@ class Settings(BaseSettings):
             return f"sqlite:///./{data.get('POSTGRES_DB')}.db"
         else:
             return f"postgresql://{data.get('POSTGRES_USER')}:{data.get('POSTGRES_PASSWORD')}@{data.get('POSTGRES_SERVER')}/{data.get('POSTGRES_DB')}"
+        
+    @field_validator("ALLOWED_HOSTS", mode="before")
+    def assemble_allowed_hosts(cls, v: Union[str, List[str]]):
+        if isinstance(v, str) and not v.startswith("["):
+            return [i.strip() for i in v.split(",")]
+        elif isinstance(v, list):
+            return v
+        raise ValueError("Invalid ALLOWED_HOSTS format", v)
     
     # Email settings
     EMAIL_ENABLED: bool = False
@@ -126,6 +134,12 @@ class Settings(BaseSettings):
     # Frontend
     FRONTEND_URL: str = "http://localhost:3000"
     SERVER_HOST: str = "http://localhost:8000"
+
+    # Hosts allowed by TrustedHostMiddleware.  Should be a list of hostnames
+    # or IPs that the server will accept in the Host header.  Wildcard (*) is
+    # convenient in development but avoid it in production for security.
+    ALLOWED_HOSTS: List[str] = ["*"]
+
 
     # Media / file uploads
     MEDIA_DIR: str = "media"
