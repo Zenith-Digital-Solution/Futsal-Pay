@@ -102,7 +102,7 @@ app.add_middleware(
 if not settings.DEBUG:
     app.add_middleware(
         TrustedHostMiddleware,
-        allowed_hosts=["localhost", "127.0.0.1", settings.SERVER_HOST.replace("http://", "").replace("https://", "")]
+        allowed_hosts=["localhost", "127.0.0.1", settings.SERVER_HOST.replace("http://", "").replace("https://", ""), settings.SERVER_HOST.split("://")[-1].split(":")[0]]
     )
 
 app.include_router(core_config_router, prefix=settings.API_V1_STR)
