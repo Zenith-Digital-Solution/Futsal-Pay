@@ -70,8 +70,13 @@ class Settings(BaseSettings):
             return f"redis://{data.get('REDIS_HOST')}:{data.get('REDIS_PORT')}/{data.get('REDIS_DB')}"
 
     # CORS settings
-    BACKEND_CORS_ORIGINS: List[Union[str, AnyHttpUrl]] = ["http://localhost", "http://localhost:3000"]
-
+    BACKEND_CORS_ORIGINS: List[Union[str, AnyHttpUrl]] = [
+    # "http://144.126.252.228",
+    # "http://144.126.252.228:80",  
+    # "http://localhost:3000",      
+    # "http://localhost:8000",  
+    "*",
+]
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")
     def assemble_cors_origins(cls, v: Union[str, List[str]]):
         if isinstance(v, str) and not v.startswith("["):
@@ -109,6 +114,14 @@ class Settings(BaseSettings):
             return f"sqlite:///./{data.get('POSTGRES_DB')}.db"
         else:
             return f"postgresql://{data.get('POSTGRES_USER')}:{data.get('POSTGRES_PASSWORD')}@{data.get('POSTGRES_SERVER')}/{data.get('POSTGRES_DB')}"
+        
+    @field_validator("ALLOWED_HOSTS", mode="before")
+    def assemble_allowed_hosts(cls, v: Union[str, List[str]]):
+        if isinstance(v, str) and not v.startswith("["):
+            return [i.strip() for i in v.split(",")]
+        elif isinstance(v, list):
+            return v
+        raise ValueError("Invalid ALLOWED_HOSTS format", v)
     
     # Email settings
     EMAIL_ENABLED: bool = False
@@ -121,6 +134,12 @@ class Settings(BaseSettings):
     # Frontend
     FRONTEND_URL: str = "http://localhost:3000"
     SERVER_HOST: str = "http://localhost:8000"
+
+    # Hosts allowed by TrustedHostMiddleware.  Should be a list of hostnames
+    # or IPs that the server will accept in the Host header.  Wildcard (*) is
+    # convenient in development but avoid it in production for security.
+    ALLOWED_HOSTS: List[str] = ["*"]
+
 
     # Media / file uploads
     MEDIA_DIR: str = "media"

@@ -99,11 +99,12 @@ app.add_middleware(
 )
 
 # Trusted host middleware (prevent host header attacks)
-if not settings.DEBUG:
-    app.add_middleware(
-        TrustedHostMiddleware,
-        allowed_hosts=["localhost", "127.0.0.1", settings.SERVER_HOST.replace("http://", "").replace("https://", ""), settings.SERVER_HOST.split("://")[-1].split(":")[0]]
-    )
+
+# always install; the list itself comes from configuration
+app.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=settings.ALLOWED_HOSTS,
+)
 
 app.include_router(core_config_router, prefix=settings.API_V1_STR)
 app.include_router(api_router, prefix=settings.API_V1_STR)
