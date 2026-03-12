@@ -9,6 +9,14 @@ from passlib.context import CryptContext
 
 from src.apps.core.config import settings
 
+# Patch bcrypt 4.x compatibility with passlib
+try:
+    import bcrypt
+    if not hasattr(bcrypt, "__about__"):
+        bcrypt.__about__ = type("about", (), {"__version__": bcrypt.__version__})()
+except Exception:
+    pass
+
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 ALGORITHM = "HS256"

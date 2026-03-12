@@ -76,26 +76,34 @@ async def signup(
             except Exception:
                 pass  # role may already be assigned in edge cases
 
-        analytics.identify(
-            distinct_id=str(new_user.id),
-            properties={
-                "email": new_user.email,
-                "username": new_user.username,
-                "first_name": login_data.first_name or "",
-                "last_name": login_data.last_name or "",
-            },
-        )
-        analytics.track(
-            distinct_id=str(new_user.id),
-            event="user_signed_up",
-            properties={"method": "email"},
-        )
+        try:
+            analytics.identify(
+                distinct_id=str(new_user.id),
+                properties={
+                    "email": new_user.email,
+                    "username": new_user.username,
+                    "first_name": login_data.first_name or "",
+                    "last_name": login_data.last_name or "",
+                },
+            )
+            analytics.track(
+                distinct_id=str(new_user.id),
+                event="user_signed_up",
+                properties={"method": "email"},
+            )
+        except Exception:
+            pass
 
-        # Invalidate users list cache
-        await RedisCache.clear_pattern("users:list:*")
-        
-        from src.apps.iam.services.email import EmailService
-        await EmailService.send_welcome_email(new_user)
+        try:
+            await RedisCache.clear_pattern("users:list:*")
+        except Exception:
+            pass
+
+        try:
+            from src.apps.iam.services.email import EmailService
+            await EmailService.send_welcome_email(new_user)
+        except Exception:
+            pass
         
         user_agent = request.headers.get("user-agent", "unknown")
         
