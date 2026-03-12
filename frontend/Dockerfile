@@ -4,7 +4,7 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
-RUN npm ci 
+RUN npm ci
 
 # Stage 2: Builder
 FROM node:20-alpine AS builder
@@ -15,6 +15,10 @@ COPY . .
 
 ENV NEXT_TELEMETRY_DISABLED 1
 ENV NODE_ENV production
+
+# 🚀 Memory optimisation: limit Node heap to 2GB and disable Turbopack (use webpack)
+ENV NODE_OPTIONS="--max-old-space-size=2048"
+ENV NEXT_TURBOPACK_BUILD=0
 
 RUN npm run build
 
