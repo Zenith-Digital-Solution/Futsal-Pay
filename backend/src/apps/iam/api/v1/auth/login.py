@@ -48,7 +48,7 @@ async def login_access_token(
 
         if not user:
             login_attempt = LoginAttempt(
-                user_id=0,
+                user_id=None,
                 ip_address=ip_address,
                 user_agent=user_agent,
                 success=False,
@@ -186,7 +186,7 @@ async def login_access_token(
         raise
     except Exception as ex:
         login_attempt = LoginAttempt(
-            user_id=user.id if user else 0,
+            user_id=user.id if user else None,
             ip_address=ip_address,
             user_agent=user_agent,
             success=False,
