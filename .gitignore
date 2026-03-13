@@ -16,6 +16,10 @@ key.properties
 # Mono auto generated files
 mono_crash.*
 
+# test db
+*.db
+**/*.db
+
 # Build results
 [Dd]ebug/
 [Dd]ebugPublic/
@@ -362,3 +366,4 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 publish/.env
+backend/mydatabase.db

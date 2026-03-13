@@ -1,79 +1,46 @@
 services:
-  aspire-dashboard:
-    container_name: "aspire-dashboard"
-    image: "mcr.microsoft.com/dotnet/aspire-dashboard:latest"
-    environment:
-      DOTNET_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS: "false"
-      ASPNETCORE_URLS: "http://+:18888"
-      ASPNETCORE_ENVIRONMENT: "Production"
-      DASHBOARD__FRONTEND__AUTHMODE: "BrowserToken"
-      DASHBOARD__FRONTEND__BROWSERTOKEN: ${DASHBOARD_PASSWORD}
-      DASHBOARD__OTLP__AUTHMODE: "ApiKey"
-      DASHBOARD__OTLP__PRIMARYAPIKEY: ${DASHBOARD_API_KEY}
-      DASHBOARD__OTLP__ENABLEHTTPRECEIVER: "true"
-    ports:
-      - target: 18888
-        published: 18888
-    restart: unless-stopped
-    networks:
-      - futsalnet
-
   cache:
     container_name: "cache"
-    image: "docker.io/library/redis:latest"
+    image: redis:latest
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD}
-      # OTEL_EXPORTER_OTLP_ENDPOINT: "http://aspire-dashboard:18889"
-      # OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
-      # OTEL_EXPORTER_OTLP_HEADERS: "x-otlp-api-key=${DASHBOARD_API_KEY}"
-      # OTEL_SERVICE_NAME: "cache"
     ports:
-      - target: 6379
-        published: 6379
+      - "6379:6379"
     command:
-      - "redis-server"
-      - "--requirepass"
-      - "${REDIS_PASSWORD}"
+      - redis-server
+      - --requirepass
+      - ${REDIS_PASSWORD}
     restart: unless-stopped
     networks:
       - futsalnet
 
   db:
     container_name: "db"
-    image: "docker.io/library/postgres:latest"
+    image: postgres:latest
     environment:
-      POSTGRES_HOST_AUTH_METHOD: "scram-sha-256"
-      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=scram-sha-256"
-      POSTGRES_USER: "postgres"
+      POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: "futsaldb"
-      # OTEL_EXPORTER_OTLP_ENDPOINT: "http://aspire-dashboard:18889"
-      # OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
-      # OTEL_EXPORTER_OTLP_HEADERS: "x-otlp-api-key=${DASHBOARD_API_KEY}"
-      # OTEL_SERVICE_NAME: "db"
+      POSTGRES_DB: futsaldb
+    # mount the parent directory so the v18+ image can manage versioned
+    # subdirectories (e.g. "18/main"); avoids the "unused volume" warning.
     volumes:
-      - "pgdata:/var/lib/postgresql/data"
+      - pgdata:/var/lib/postgresql
     ports:
-      - target: 5432
-        published: 5432
+      - "5432:5432"
     restart: unless-stopped
     networks:
       - futsalnet
 
   pgadmin:
     container_name: "pgadmin"
-    image: "dpage/pgadmin4:latest"
+    image: dpage/pgadmin4:latest
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
-      # OTEL_EXPORTER_OTLP_ENDPOINT: "http://aspire-dashboard:18889"
-      # OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
-      # OTEL_EXPORTER_OTLP_HEADERS: "x-otlp-api-key=${DASHBOARD_API_KEY}"
     ports:
-      - target: 80
-        published: 8081
+      - "8081:80"
     volumes:
-      - "pgadmin_data:/var/lib/pgadmin"
+      - pgadmin_data:/var/lib/pgadmin
     depends_on:
       - db
     restart: unless-stopped
@@ -82,35 +49,25 @@ services:
 
   apiservice:
     container_name: "apiservice"
-    image: "futsal/apiservice:latest"
-    user: "root"
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
     environment:
-      OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EXCEPTION_LOG_ATTRIBUTES: "true"
-      OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EVENT_LOG_ATTRIBUTES: "true"
-      OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY: "in_memory"
-      ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
-      HTTP_PORTS: "8080"
-      ConnectionStrings__futsaldb: "Host=db;Port=5432;Username=postgres;Password=${POSTGRES_PASSWORD};Database=futsaldb"
-      ConnectionStrings__cache: "cache:6379,password=${REDIS_PASSWORD}"
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://aspire-dashboard:18889"
-      OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
-      OTEL_EXPORTER_OTLP_HEADERS: "x-otlp-api-key=${DASHBOARD_API_KEY}"
-      OTEL_SERVICE_NAME: "apiservice"
-      OTEL_RESOURCE_ATTRIBUTES: "service.name=apiservice,service.version=1.0.0"
-    command: >
-      sh -c "
-        mkdir -p /app/wwwroot/uploads &&
-        chmod -R 777 /app/wwwroot/uploads &&
-        chown -R appuser:appuser /app/wwwroot/uploads &&
-        su appuser -c 'dotnet FutsalApi.ApiService.dll'
-      "
+      PYTHONPATH: "."
+      DEBUG: "False"
+      SECRET_KEY: ${SECRET_KEY}
+      POSTGRES_SERVER: db
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: futsaldb
+      REDIS_HOST: cache
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
     ports:
-      - target: 8080
-        published: 10000
-      - target: 8443
-        published: 10001
+      - "8000:8000"
     volumes:
-      - "uploads_data:/app/wwwroot/uploads"
+      - uploads_data:/app/media
     depends_on:
       - db
       - cache
@@ -118,10 +75,54 @@ services:
     networks:
       - futsalnet
 
+  celery-worker:
+    container_name: "celery-worker"
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    command: celery -A src.apps.core.celery_app worker --loglevel=info
+    environment:
+      PYTHONPATH: "."
+      SECRET_KEY: ${SECRET_KEY}
+
+      POSTGRES_SERVER: db
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: futsaldb
+
+      REDIS_HOST: cache
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+
+    volumes:
+      - uploads_data:/app/media
+    depends_on:
+      - db
+      - cache
+    restart: unless-stopped
+    networks:
+      - futsalnet
+
+  frontend:
+    container_name: "frontend"
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://apiservice:8000}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - apiservice
+    restart: unless-stopped
+    networks:
+      - futsalnet
+
 volumes:
-  pgdata: {}
-  pgadmin_data: {}
-  uploads_data: {}
+  pgdata:
+  pgadmin_data:
+  uploads_data:
 
 networks:
   futsalnet:
