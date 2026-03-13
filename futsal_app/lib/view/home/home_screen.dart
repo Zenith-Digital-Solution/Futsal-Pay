@@ -10,9 +10,7 @@ import 'package:ui/view/home/bloc/trending_futsal/trending_futsal_event.dart';
 import 'package:ui/view/home/bloc/trending_futsal/trending_futsal_state.dart';
 import 'package:ui/view/reviews/reviews.dart';
 import '../../core/dimension.dart';
-import '../../core/service/notification_service.dart';
 import '../futsal/futsal_details.dart';
-import '../notifications/notifications_screen.dart';
 
 import 'package:ui/view/search/search_screen.dart';
 
@@ -27,16 +25,11 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   bool _isGridView = false;
-  int _unreadNotificationCount = 0;
 
   @override
   void initState() {
     super.initState();
     _loadViewPreference();
-    _updateNotificationCount();
-
-    // Listen to notification changes
-    NotificationService().addListener(_updateNotificationCount);
   }
 
   Future<void> _loadViewPreference() async {
@@ -44,14 +37,6 @@ class _HomeScreenState extends State<HomeScreen> {
     if (mounted) {
       setState(() {
         _isGridView = prefs.getBool('isGridView') ?? false;
-      });
-    }
-  }
-
-  void _updateNotificationCount() {
-    if (mounted) {
-      setState(() {
-        _unreadNotificationCount = NotificationService().unreadCount;
       });
     }
   }
@@ -66,7 +51,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
-    NotificationService().removeListener(_updateNotificationCount);
     super.dispose();
   }
 
@@ -202,57 +186,6 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
                       ],
-                    ),
-                    GestureDetector(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const NotificationsScreen(),
-                          ),
-                        );
-                      },
-                      child: Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          CircleAvatar(
-                            radius: Dimension.width(18),
-                            backgroundColor: Colors.white24,
-                            child: Icon(
-                              Icons.notifications,
-                              color: Colors.white,
-                              size: Dimension.font(20),
-                            ),
-                          ),
-                          if (_unreadNotificationCount > 0)
-                            Positioned(
-                              right: -2,
-                              top: -2,
-                              child: Container(
-                                padding: EdgeInsets.all(Dimension.width(4)),
-                                decoration: const BoxDecoration(
-                                  color: Colors.red,
-                                  shape: BoxShape.circle,
-                                ),
-                                constraints: BoxConstraints(
-                                  minWidth: Dimension.width(16),
-                                  minHeight: Dimension.width(16),
-                                ),
-                                child: Text(
-                                  _unreadNotificationCount > 9
-                                      ? '9+'
-                                      : _unreadNotificationCount.toString(),
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: Dimension.font(10),
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
                     ),
                   ],
                 ),

@@ -7,7 +7,6 @@ import '../auth/bloc/auth_state.dart';
 import '../auth/login.dart';
 import '../edit_profile/edit_profile.dart';
 import '../settings/settings.dart';
-import 'notifications_settings.dart';
 import 'privacy_policy.dart';
 import 'help_support.dart';
 import 'bloc/profile_bloc.dart';
@@ -660,33 +659,6 @@ class _ProfileState extends State<Profile> {
                 Colors.cyan,
                 'assets/icons/setting.png',
                 'Settings',
-              ),
-            ),
-          ),
-          GestureDetector(
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => const NotificationsSettingsScreen(),
-                ),
-              );
-            },
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.transparent,
-                border: Border(
-                  bottom: BorderSide(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.outline.withOpacity(0.1),
-                    width: Dimension.height(1),
-                  ),
-                ),
-              ),
-              child: menuItems(
-                Colors.deepPurpleAccent,
-                'assets/icons/notification.png',
-                'Notifications',
               ),
             ),
           ),

@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:ui/view/bookings/bookings.dart';
 import 'package:ui/view/home/map_view.dart';
 import 'package:ui/view/profile/profile.dart';
@@ -24,15 +22,7 @@ class _HomeState extends State<Home> {
   @override
   void initState() {
     super.initState();
-    _requestPermissions();
-  }
-
-  Future<void> _requestPermissions() async {
-    // Request location permission
-    await _requestLocationPermission();
-
-    // Request notification permission
-    await _requestNotificationPermission();
+    _requestLocationPermission();
   }
 
   Future<void> _requestLocationPermission() async {
@@ -40,26 +30,6 @@ class _HomeState extends State<Home> {
     if (permission == LocationPermission.denied) {
       await Geolocator.requestPermission();
     }
-  }
-
-  Future<void> _requestNotificationPermission() async {
-    // Request notification permission using permission_handler
-    // This properly handles Android 13+ runtime permission
-    final status = await Permission.notification.status;
-
-    if (status.isDenied || status.isLimited) {
-      // Request the permission - this will show the system dialog
-      await Permission.notification.request();
-    }
-
-    // Also request FCM permission for iOS
-    final messaging = FirebaseMessaging.instance;
-    await messaging.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-      provisional: false,
-    );
   }
 
   final List<_NavData> _items = const [

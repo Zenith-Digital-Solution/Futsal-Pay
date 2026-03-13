@@ -12,8 +12,6 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  bool pushNotifications = true;
-
   @override
   Widget build(BuildContext context) {
     Dimension.init(context);
@@ -84,35 +82,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               iconImage: context.read<ThemeNotifier>().isDark
                   ? 'assets/icons/sun.png'
                   : 'assets/icons/moon.png',
-            ),
-          ),
-          SizedBox(height: Dimension.height(16)),
-          _SectionHeader('NOTIFICATIONS'),
-          Container(
-            decoration: BoxDecoration(
-              color: Theme.of(context).cardColor,
-              borderRadius: BorderRadius.circular(Dimension.width(12)),
-              boxShadow: [
-                BoxShadow(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.outline.withOpacity(0.06),
-                  blurRadius: Dimension.width(10),
-                  offset: const Offset(0, 0),
-                  spreadRadius: Dimension.width(2),
-                ),
-              ],
-            ),
-            child: _SwitchTile(
-              leading: Icons.notifications_outlined,
-              title: 'Push Notifications',
-              subtitle: 'Get notified about bookings',
-              value: pushNotifications,
-              onChanged: (value) {
-                setState(() {
-                  pushNotifications = value;
-                });
-              },
             ),
           ),
           SizedBox(height: Dimension.height(16)),

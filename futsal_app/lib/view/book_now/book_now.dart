@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../core/dimension.dart';
-import '../../core/service/notification_service.dart';
 import '../../core/service/payment_service.dart';
 import '../bookings/data/repository/booking_repository.dart';
 import '../bookings/bookings.dart';
@@ -150,13 +149,6 @@ class _BookNowState extends State<BookNow> {
       );
 
       if (!mounted) return;
-
-      // Show notification
-      NotificationService().showBookingConfirmed(
-        groundName: widget.futsalData['name'] ?? 'Futsal Ground',
-        bookingDate: DateFormat('MMM dd, yyyy').format(selectedDate),
-        timeSlot: _selectedTimeSlot!,
-      );
 
       // Show payment option dialog
       _showPaymentOptionDialog(bookingId);

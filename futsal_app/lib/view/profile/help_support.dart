@@ -82,7 +82,7 @@ class HelpSupportScreen extends StatelessWidget {
             _buildFAQItem(
               context,
               'How do I book a futsal court?',
-              'Browse available courts, select your preferred date and time, and confirm your booking. You\'ll receive a confirmation notification.',
+              'Browse available courts, select your preferred date and time, and confirm your booking.',
             ),
             SizedBox(height: Dimension.height(12)),
             _buildFAQItem(

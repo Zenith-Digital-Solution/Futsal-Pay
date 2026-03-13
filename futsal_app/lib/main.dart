@@ -16,8 +16,6 @@ import 'package:ui/view/profile/data/repository/profile_repository.dart';
 import 'package:ui/core/simple_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:ui/core/service/api_service.dart';
-import 'package:ui/core/service/notification_service.dart';
-import 'package:ui/core/service/fcm_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,12 +25,6 @@ void main() async {
 
   // Initialize Firebase
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-
-  // Initialize NotificationService
-  NotificationService();
-
-  // Initialize FCM Service for push notifications
-  await FCMService().initialize();
 
   runApp(
     ChangeNotifierProvider<ThemeNotifier>(
