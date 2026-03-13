@@ -218,6 +218,10 @@ csx/
 ecf/
 rcf/
 
+# Firebase client config
+futsal_app/android/app/google-services.json
+futsal_app/ios/Runner/GoogleService-Info.plist
+
 # Windows Store app package directories and files
 AppPackages/
 BundleArtifacts/
