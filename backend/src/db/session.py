@@ -34,5 +34,15 @@ async def init_db():
         await conn.run_sync(SQLModel.metadata.create_all)
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
+    """FastAPI dependency yielding a DB session.
+
+    If an exception occurs, the session is rolled back so it does not remain in an
+    invalid/failed transaction state, which can lead to "Can't reconnect until
+    invalid transaction is rolled back" errors.
+    """
     async with async_session_factory() as session:
-        yield session
+        try:
+            yield session
+        except Exception:
+            await session.rollback()
+            raise
