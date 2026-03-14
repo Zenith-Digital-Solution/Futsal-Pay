@@ -9,7 +9,7 @@ export default function OwnerDashboardLayout({ children }: { children: React.Rea
   return (
     <ProtectedRoute requiredRole="owner">
       <SubscriptionGate>
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen bg-gray-50 dark:bg-[#0A0F1E]">
           <OwnerSidebar />
           <Header />
           <main className="ml-64 pt-16 p-6">{children}</main>

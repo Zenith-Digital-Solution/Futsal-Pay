@@ -34,8 +34,8 @@ export function OwnerSidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-10 w-64 bg-white border-r border-gray-200">
-      <div className="flex h-16 items-center justify-center border-b border-gray-200">
+    <aside className="fixed inset-y-0 left-0 z-10 w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-white/10">
+      <div className="flex h-16 items-center justify-center border-b border-gray-200 dark:border-white/10">
         <Link href="/owner/dashboard" className="text-xl font-bold text-green-600">
           ⚽ Futsal Owner
         </Link>
@@ -51,8 +51,8 @@ export function OwnerSidebar() {
               href={item.href}
               className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                 isActive
-                  ? 'bg-green-50 text-green-600'
-                  : 'text-gray-700 hover:bg-gray-100'
+                  ? 'bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+                  : 'text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-white/5'
               }`}
             >
               <item.icon className="h-5 w-5" />
