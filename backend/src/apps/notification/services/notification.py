@@ -13,6 +13,7 @@ from src.apps.notification.schemas.notification import (
     NotificationList,
     NotificationRead,
 )
+from src.apps.core.config import settings
 from src.apps.notification.tasks import (
     send_notification_email_task,
     send_push_notification_task,
@@ -105,6 +106,9 @@ async def _push_to_ws(notification: Notification) -> None:
 
 async def _push_to_email(db: AsyncSession, notification: Notification) -> None:
     """Queue an email copy of the notification via Celery."""
+    if not settings.EMAIL_ENABLED:
+        return
+
     try:
         from src.apps.iam.models.user import User
 

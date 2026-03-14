@@ -24,6 +24,10 @@ class EmailService:
         NOTE: This requires SMTP settings in env (e.g. SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD)
         for now, we'll log if the settings are missing.
         """
+        if not settings.EMAIL_ENABLED:
+            logger.debug("Email skipped (EMAIL_ENABLED=False): Subject: %s", subject)
+            return
+
         # Use Celery for background task processing
         from src.apps.core.tasks import send_email_task
         
@@ -39,6 +43,10 @@ class EmailService:
 
     @staticmethod
     async def send_welcome_email(user) -> None:
+        if not settings.EMAIL_ENABLED:
+            logger.debug("Welcome email skipped (EMAIL_ENABLED=False) for user: %s", user.email)
+            return
+
         from src.apps.iam.tasks import send_welcome_email_task
         user_data = {
             "username": user.username,
@@ -53,6 +61,10 @@ class EmailService:
 
     @staticmethod
     async def send_password_reset_email(user, token:str) -> None:
+        if not settings.EMAIL_ENABLED:
+            logger.debug("Password reset email skipped (EMAIL_ENABLED=False) for user: %s", user.email)
+            return
+
         # Create secure URL token with embedded user_id
         from src.apps.core import security
         from src.apps.iam.tasks import send_password_reset_email_task
@@ -77,6 +89,10 @@ class EmailService:
 
     @staticmethod
     async def send_verification_email(user, token: str) -> None:
+        if not settings.EMAIL_ENABLED:
+            logger.debug("Verification email skipped (EMAIL_ENABLED=False) for user: %s", user.email)
+            return
+
         # Create secure URL token with embedded user_id
         from src.apps.core import security
         from src.apps.iam.tasks import send_verification_email_task
