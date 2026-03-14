@@ -126,19 +126,20 @@ app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 app.add_middleware(SecurityHeadersMiddleware)
 
 # CORS middleware
-# In DEBUG mode allow everything (no credentials so wildcard is valid).
-# In production, collect all configured origins + FRONTEND_URL, strip any
-# trailing slashes that URL parsers may add, and drop bare wildcards because
-# allow_credentials=True + wildcard is rejected by browsers.
-if settings.DEBUG:
+#
+# Rules:
+# • If BACKEND_CORS_ORIGINS contains "*" (the default), use wildcard so any
+#   browser origin is accepted.  allow_credentials MUST be False when using
+#   wildcard — browsers reject the combination.  The frontend uses
+#   localStorage-based tokens (not cookies), so credentials=False is fine.
+# • If specific origins are listed, use those plus FRONTEND_URL and enable
+#   credentials so cookies / Authorization headers are forwarded correctly.
+_raw_origins = [str(_o).rstrip("/") for _o in settings.BACKEND_CORS_ORIGINS]
+if "*" in _raw_origins:
     _cors_origins: list[str] = ["*"]
     _allow_credentials = False
 else:
-    _origin_set: set[str] = set()
-    for _o in settings.BACKEND_CORS_ORIGINS:
-        _cleaned = str(_o).rstrip("/")
-        if _cleaned and _cleaned != "*":
-            _origin_set.add(_cleaned)
+    _origin_set: set[str] = {_o for _o in _raw_origins if _o}
     # Always include the canonical frontend URL so it works even if omitted
     # from BACKEND_CORS_ORIGINS.
     _origin_set.add(settings.FRONTEND_URL.rstrip("/"))
