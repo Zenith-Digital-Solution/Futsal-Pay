@@ -2,6 +2,7 @@ from typing import Optional, TYPE_CHECKING
 from datetime import datetime, timezone
 from enum import Enum
 from sqlmodel import SQLModel, Field, Relationship
+from sqlalchemy import DateTime
 
 if TYPE_CHECKING:
     from src.apps.iam.models.user import User
@@ -42,8 +43,8 @@ class Tenant(TenantBase, table=True):
         foreign_key="user.id",
         description="User ID of the tenant owner",
     )
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(sa_type=DateTime(timezone=True), default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(sa_type=DateTime(timezone=True), default_factory=lambda: datetime.now(timezone.utc))
 
     # Relationships
     members: list["TenantMember"] = Relationship(back_populates="tenant")
@@ -78,7 +79,7 @@ class TenantMember(TenantMemberBase, table=True):
         index=True,
         ondelete="CASCADE",
     )
-    joined_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    joined_at: datetime = Field(sa_type=DateTime(timezone=True), default_factory=lambda: datetime.now(timezone.utc))
 
     # Relationships
     tenant: Optional[Tenant] = Relationship(back_populates="members")
@@ -107,9 +108,9 @@ class TenantInvitation(TenantInvitationBase, table=True):
         description="User ID who sent the invitation",
     )
     token: str = Field(max_length=255, unique=True, index=True, description="One-time invitation token")
-    expires_at: datetime = Field(description="When the invitation expires")
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    accepted_at: Optional[datetime] = Field(default=None)
+    expires_at: datetime = Field(sa_type=DateTime(timezone=True), description="When the invitation expires")
+    created_at: datetime = Field(sa_type=DateTime(timezone=True), default_factory=lambda: datetime.now(timezone.utc))
+    accepted_at: Optional[datetime] = Field(sa_type=DateTime(timezone=True), default=None)
 
     # Relationships
     tenant: Optional[Tenant] = Relationship(back_populates="invitations")

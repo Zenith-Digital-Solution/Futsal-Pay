@@ -2,6 +2,7 @@ from datetime import date, datetime, time, timezone
 from enum import Enum
 from typing import Optional, TYPE_CHECKING
 from sqlmodel import Field, SQLModel, Relationship
+from sqlalchemy import DateTime
 import uuid
 
 if TYPE_CHECKING:
@@ -46,10 +47,10 @@ class Booking(BookingBase, table=True):
     status: BookingStatus = Field(default=BookingStatus.PENDING)
     qr_code: str = Field(default_factory=lambda: str(uuid.uuid4()), unique=True, index=True)
     qr_used: bool = Field(default=False)
-    cancelled_at: Optional[datetime] = Field(default=None)
+    cancelled_at: Optional[datetime] = Field(sa_type=DateTime(timezone=True), default=None)
     pre_play_reminder_sent: bool = Field(default=False, description="True once the 2-hour pre-play reminder has been dispatched")
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(sa_type=DateTime(timezone=True), default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(sa_type=DateTime(timezone=True), default_factory=lambda: datetime.now(timezone.utc))
 
     user: Optional["User"] = Relationship()
     ground: Optional["FutsalGround"] = Relationship(back_populates="bookings")

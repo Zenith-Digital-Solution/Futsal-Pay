@@ -1,6 +1,7 @@
 from datetime import date, datetime, time, timezone
 from typing import Optional, TYPE_CHECKING
 from sqlmodel import Field, SQLModel, Relationship
+from sqlalchemy import DateTime
 
 if TYPE_CHECKING:
     from src.apps.iam.models.user import User
@@ -17,8 +18,8 @@ class WaitlistEntry(SQLModel, table=True):
     start_time: time
     end_time: time
     is_active: bool = Field(default=True)
-    notified_at: Optional[datetime] = Field(default=None)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    notified_at: Optional[datetime] = Field(sa_type=DateTime(timezone=True), default=None)
+    created_at: datetime = Field(sa_type=DateTime(timezone=True), default_factory=lambda: datetime.now(timezone.utc))
 
     user: Optional["User"] = Relationship()
     ground: Optional["FutsalGround"] = Relationship()

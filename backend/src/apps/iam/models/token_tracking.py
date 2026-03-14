@@ -1,7 +1,7 @@
 from typing import Optional, TYPE_CHECKING
 from datetime import datetime, timezone
 from sqlmodel import SQLModel, Field, Relationship
-from sqlalchemy import Column, Enum as SAEnum
+from sqlalchemy import Column, DateTime, Enum as SAEnum
 from src.apps.core.security import TokenType
 
 if TYPE_CHECKING:
@@ -31,7 +31,7 @@ class TokenTrackingBase(SQLModel):
         default=True,
         description="Whether the token is still active"
     )
-    revoked_at: Optional[datetime] = Field(
+    revoked_at: Optional[datetime] = Field(sa_type=DateTime(timezone=True), 
         default=None,
         description="When the token was revoked"
     )
@@ -40,10 +40,10 @@ class TokenTrackingBase(SQLModel):
         max_length=255,
         description="Reason for token revocation"
     )
-    expires_at: datetime = Field(
+    expires_at: datetime = Field(sa_type=DateTime(timezone=True), 
         description="When the token expires"
     )
-    created_at: datetime = Field(
+    created_at: datetime = Field(sa_type=DateTime(timezone=True), 
         default_factory=lambda: datetime.now(timezone.utc),
         description="When the token was created"
     )

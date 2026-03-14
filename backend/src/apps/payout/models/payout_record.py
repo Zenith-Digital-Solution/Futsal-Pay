@@ -2,6 +2,7 @@ from datetime import date, datetime, timezone
 from enum import Enum
 from typing import Optional, TYPE_CHECKING
 from sqlmodel import Field, SQLModel, Relationship
+from sqlalchemy import DateTime
 
 if TYPE_CHECKING:
     from src.apps.iam.models.user import User
@@ -37,9 +38,9 @@ class PayoutRecord(SQLModel, table=True):
     transaction_ref: Optional[str] = Field(default=None, max_length=255)
     retry_count: int = Field(default=0, ge=0)
     last_error: Optional[str] = Field(default=None, max_length=500)
-    initiated_at: Optional[datetime] = Field(default=None)
-    completed_at: Optional[datetime] = Field(default=None)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    initiated_at: Optional[datetime] = Field(sa_type=DateTime(timezone=True), default=None)
+    completed_at: Optional[datetime] = Field(sa_type=DateTime(timezone=True), default=None)
+    created_at: datetime = Field(sa_type=DateTime(timezone=True), default_factory=lambda: datetime.now(timezone.utc))
 
     owner: Optional["User"] = Relationship()
     ledger_entries: list["PayoutLedger"] = Relationship(back_populates="payout")

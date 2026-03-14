@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Optional
 
-from sqlalchemy import JSON
+from sqlalchemy import DateTime, JSON
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -28,7 +28,7 @@ class Notification(SQLModel, table=True):
     type: NotificationType = Field(default=NotificationType.INFO)
     is_read: bool = Field(default=False)
     extra_data: Optional[Any] = Field(default=None, sa_type=JSON)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(sa_type=DateTime(timezone=True), default_factory=lambda: datetime.now(timezone.utc))
 
     # Relationships
     user: Optional["User"] = Relationship(back_populates="notifications")

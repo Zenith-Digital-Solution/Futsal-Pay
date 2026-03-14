@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional, TYPE_CHECKING
 from sqlmodel import Field, SQLModel, Relationship
+from sqlalchemy import DateTime
 
 if TYPE_CHECKING:
     from src.apps.iam.models.user import User
@@ -24,8 +25,8 @@ class LoyaltyAccount(SQLModel, table=True):
     points_balance: int = Field(default=0, ge=0)
     total_earned: int = Field(default=0, ge=0)
     total_redeemed: int = Field(default=0, ge=0)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(sa_type=DateTime(timezone=True), default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(sa_type=DateTime(timezone=True), default_factory=lambda: datetime.now(timezone.utc))
 
     user: Optional["User"] = Relationship()
     transactions: list["LoyaltyTransaction"] = Relationship(back_populates="account")
@@ -40,7 +41,7 @@ class LoyaltyTransaction(SQLModel, table=True):
     transaction_type: LoyaltyTransactionType
     points: int  # positive = earned/bonus, negative = redeemed/expired
     description: str = Field(max_length=255)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(sa_type=DateTime(timezone=True), default_factory=lambda: datetime.now(timezone.utc))
 
     account: Optional["LoyaltyAccount"] = Relationship(back_populates="transactions")
     booking: Optional["Booking"] = Relationship()

@@ -6,6 +6,7 @@ from datetime import datetime, date, timezone
 from enum import Enum
 from typing import Optional, TYPE_CHECKING
 from sqlmodel import Field, SQLModel, Relationship
+from sqlalchemy import DateTime
 
 if TYPE_CHECKING:
     from src.apps.iam.models.user import User
@@ -29,7 +30,7 @@ class OwnerSubscription(SQLModel, table=True):
     plan_id: int = Field(foreign_key="subscription_plans.id")
     status: SubscriptionStatus = Field(default=SubscriptionStatus.TRIALING)
 
-    trial_ends_at: Optional[datetime] = Field(default=None)
+    trial_ends_at: Optional[datetime] = Field(sa_type=DateTime(timezone=True), default=None)
     current_period_start: Optional[date] = Field(default=None)
     current_period_end: Optional[date] = Field(default=None)
 
@@ -47,9 +48,9 @@ class OwnerSubscription(SQLModel, table=True):
         default=False,
         description="When True, cancel at current_period_end instead of renewing"
     )
-    cancelled_at: Optional[datetime] = Field(default=None)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    cancelled_at: Optional[datetime] = Field(sa_type=DateTime(timezone=True), default=None)
+    created_at: datetime = Field(sa_type=DateTime(timezone=True), default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(sa_type=DateTime(timezone=True), default_factory=lambda: datetime.now(timezone.utc))
 
     owner: Optional["User"] = Relationship()
     plan: Optional["SubscriptionPlan"] = Relationship()

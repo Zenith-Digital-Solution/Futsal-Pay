@@ -1,6 +1,7 @@
 from typing import Optional, TYPE_CHECKING
 from datetime import datetime, timezone
 from sqlmodel import Field, SQLModel, Relationship
+from sqlalchemy import DateTime
 
 from .user import User
 from src.apps.iam.enums import ResourceEnum, ActionEnum
@@ -28,11 +29,11 @@ class Role(RoleBase, table=True):
         default=None,
         primary_key=True
     )
-    created_at: datetime = Field(
+    created_at: datetime = Field(sa_type=DateTime(timezone=True), 
         default_factory=lambda: datetime.now(timezone.utc),
         description="Timestamp when the role was created"
     )
-    updated_at: datetime = Field(
+    updated_at: datetime = Field(sa_type=DateTime(timezone=True), 
         default_factory=lambda: datetime.now(timezone.utc),
         description="Timestamp when the role was last updated"
     )
@@ -63,7 +64,7 @@ class Permission(PermissionBase, table=True):
         default=None,
         primary_key=True
     )
-    created_at: datetime = Field(
+    created_at: datetime = Field(sa_type=DateTime(timezone=True), 
         default_factory=lambda: datetime.now(timezone.utc),
         description="Timestamp when the permission was created"
     )
@@ -109,7 +110,7 @@ class UserRole(SQLModel, table=True):
         index=True,
         description="Domain scope: 'global' or 'ground:{id}'"
     )
-    assigned_at: datetime = Field(
+    assigned_at: datetime = Field(sa_type=DateTime(timezone=True), 
         default_factory=lambda: datetime.now(timezone.utc),
         description="Timestamp when the role was assigned to the user"
     )
@@ -135,7 +136,7 @@ class RolePermission(SQLModel, table=True):
         index=True,
         description="Permission ID"
     )
-    granted_at: datetime = Field(
+    granted_at: datetime = Field(sa_type=DateTime(timezone=True), 
         default_factory=lambda: datetime.now(timezone.utc),
         description="Timestamp when the permission was granted to the role"
     )

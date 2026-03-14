@@ -1,7 +1,7 @@
 from datetime import date, datetime, time, timezone
 from typing import Optional
 from sqlmodel import Field, SQLModel
-from sqlalchemy import Index
+from sqlalchemy import DateTime, Index
 
 
 class BookingLock(SQLModel, table=True):
@@ -25,5 +25,5 @@ class BookingLock(SQLModel, table=True):
     end_time: time
     locked_by_booking_id: Optional[int] = Field(default=None, foreign_key="bookings.id")
     locked_by_user_id: int = Field(foreign_key="user.id")
-    locked_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    locked_at: datetime = Field(sa_type=DateTime(timezone=True), default_factory=lambda: datetime.now(timezone.utc))
     expires_at: datetime  # locked_at + 10 minutes

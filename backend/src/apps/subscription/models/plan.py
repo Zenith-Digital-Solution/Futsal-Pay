@@ -6,6 +6,7 @@ Supports monthly, quarterly, and yearly billing intervals.
 from datetime import datetime, timezone
 from typing import Optional
 from sqlmodel import Field, SQLModel
+from sqlalchemy import DateTime
 
 
 class SubscriptionPlan(SQLModel, table=True):
@@ -24,5 +25,5 @@ class SubscriptionPlan(SQLModel, table=True):
     features: Optional[str] = Field(default=None, description="JSON list of feature strings")
     is_active: bool = Field(default=True)
     is_public: bool = Field(default=True, description="Shown to owners in plan picker")
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(sa_type=DateTime(timezone=True), default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(sa_type=DateTime(timezone=True), default_factory=lambda: datetime.now(timezone.utc))

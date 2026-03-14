@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional, TYPE_CHECKING
 from sqlmodel import Field, SQLModel, UniqueConstraint, Relationship
+from sqlalchemy import DateTime
 
 if TYPE_CHECKING:
     from src.apps.iam.models.user import User
@@ -36,8 +37,8 @@ class GroundStaff(SQLModel, table=True):
         description="One-time token sent by email; cleared after acceptance"
     )
     invite_email: str = Field(max_length=255, description="Email the invite was sent to")
-    accepted_at: Optional[datetime] = Field(default=None)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    accepted_at: Optional[datetime] = Field(sa_type=DateTime(timezone=True), default=None)
+    created_at: datetime = Field(sa_type=DateTime(timezone=True), default_factory=lambda: datetime.now(timezone.utc))
 
     ground: Optional["FutsalGround"] = Relationship()
     user: Optional["User"] = Relationship(

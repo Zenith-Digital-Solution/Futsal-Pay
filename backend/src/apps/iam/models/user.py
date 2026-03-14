@@ -1,6 +1,7 @@
 from typing import Optional, TYPE_CHECKING
 from datetime import datetime, timezone
 from sqlmodel import Field, SQLModel, Relationship
+from sqlalchemy import DateTime
 
 if TYPE_CHECKING:
     from .login_attempt import LoginAttempt
@@ -79,7 +80,7 @@ class User(UserBase, table=True):
         index=True,
         description="Provider-specific user ID for social login"
     )
-    created_at: datetime = Field(
+    created_at: datetime = Field(sa_type=DateTime(timezone=True), 
         default_factory=lambda: datetime.now(timezone.utc),
         description="Timestamp when the user was created"
     )

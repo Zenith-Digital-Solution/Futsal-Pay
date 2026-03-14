@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+import logging
 import os
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
@@ -11,7 +12,7 @@ from slowapi.errors import RateLimitExceeded
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from src.apps.core.config import settings, load_settings_from_db
 from src.apps.core.api import router as core_config_router
-from src.apps.core.handler import rate_limit_exceeded_handler
+from src.apps.core.handler import rate_limit_exceeded_handler, global_exception_handler
 from src.apps.core.middleware import SecurityHeadersMiddleware
 from src.apps.iam.api import api_router
 from src.apps.finance.api import finance_router
@@ -26,38 +27,70 @@ from src.apps.futsal.api import futsal_router
 from src.apps.payout.api import payout_router
 from src.apps.subscription.api import subscription_router
 
+logger = logging.getLogger(__name__)
+
 # Rate limiter
 limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Initialize DB tables, Casbin enforcer, Redis cache, and WebSocket manager on startup."""
-    await init_db()
-    await load_settings_from_db()
+    """Initialize DB tables, Casbin enforcer, Redis cache, and WebSocket manager on startup.
 
-    enforcer = await CasbinEnforcer.get_enforcer(engine)
-    app.state.casbin_enforcer = enforcer
+    Every startup step is wrapped individually so that a failure in a non-critical
+    step (seeding, Casbin, Redis) does NOT prevent the server from starting.
+    Only a total DB failure would make the API useless, but the process still
+    stays alive so the container/process manager can detect it via health checks
+    rather than receiving an unexpected exit.
+    """
+    try:
+        await init_db()
+    except Exception:
+        logger.exception("Failed to initialise database tables — continuing startup")
+
+    try:
+        await load_settings_from_db()
+    except Exception:
+        logger.exception("Failed to load settings from DB — using defaults")
+
+    try:
+        enforcer = await CasbinEnforcer.get_enforcer(engine)
+        app.state.casbin_enforcer = enforcer
+    except Exception:
+        logger.exception("Failed to initialise Casbin enforcer — authorization may not work")
+        app.state.casbin_enforcer = None
 
     # Seed default roles and permissions on first run
-    from src.db.session import get_session as _get_session
-    from src.apps.iam.casbin_init import setup_default_roles_and_permissions
-    async for _session in _get_session():
-        await setup_default_roles_and_permissions(_session)
-        break
+    try:
+        from src.db.session import get_session as _get_session
+        from src.apps.iam.casbin_init import setup_default_roles_and_permissions
+        async for _session in _get_session():
+            await setup_default_roles_and_permissions(_session)
+            break
+    except Exception:
+        logger.exception("Failed to seed default roles/permissions — will retry on next startup")
 
     # Initialize Redis cache + WebSocket pub/sub in production
     if not settings.DEBUG:
         if settings.REDIS_URL:
-            await RedisCache.get_client()
-            await ws_manager.setup_redis(settings.REDIS_URL)
+            try:
+                await RedisCache.get_client()
+                await ws_manager.setup_redis(settings.REDIS_URL)
+            except Exception:
+                logger.exception("Failed to connect to Redis — real-time features may be degraded")
 
     app.state.ws_manager = ws_manager
 
     yield
 
     # Cleanup on shutdown
-    await ws_manager.teardown()
-    await RedisCache.close()
+    try:
+        await ws_manager.teardown()
+    except Exception:
+        logger.exception("Error during WebSocket manager teardown")
+    try:
+        await RedisCache.close()
+    except Exception:
+        logger.exception("Error closing Redis connection")
 
 app = FastAPI(
     lifespan=lifespan,
@@ -79,9 +112,11 @@ app = FastAPI(
     }
 )
 
-# Add rate limiter to app state and register exception handler
+# Add rate limiter to app state and register exception handlers
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler) 
+app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
+# Catch-all: return 500 JSON instead of crashing the worker
+app.add_exception_handler(Exception, global_exception_handler)
 
 # Trust proxy headers (X-Forwarded-For / X-Real-IP) so request.client.host
 # reflects the real client IP rather than the loopback / proxy address.
