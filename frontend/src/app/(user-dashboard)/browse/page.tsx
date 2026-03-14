@@ -231,7 +231,7 @@ export default function BrowseGroundsPage() {
 
   const toggleFav = useMutation({
     mutationFn: async ({ id, isFav }: { id: string; isFav: boolean }) => {
-      if (isFav) await apiClient.delete(`/futsal/favourites/${id}`);
+      if (isFav) await apiClient.post(`/futsal/favourites/${id}`);
       else       await apiClient.post(`/futsal/favourites/${id}`);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['favourites'] }),

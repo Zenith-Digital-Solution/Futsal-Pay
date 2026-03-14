@@ -34,7 +34,7 @@ function useGroundMembers(groundId: number | null) {
     queryKey: ['ground-members', groundId],
     queryFn: async () => {
       if (!groundId) return { members: [] };
-      const res = await apiClient.get(`/roles/grounds/${groundId}/members`);
+      const res = await apiClient.get(`/grounds/${groundId}/members`);
       return res.data as { ground_id: number; members: GroundMember[] };
     },
     enabled: !!groundId,

@@ -138,7 +138,7 @@ export function SignupForm() {
 
           <SocialAuthButtons action="user_signed_up" />
 
-          <p className="text-sm text-center text-gray-600">
+          <p className="text-sm text-center text-gray-600 dark:text-gray-400">
             Already have an account?{' '}
             <Link href="/login" className="text-blue-600 hover:underline">
               Sign in

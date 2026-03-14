@@ -15,14 +15,14 @@ import { UserPlus, Users, Trash2, Mail } from 'lucide-react';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
-type StaffRole = 'MANAGER' | 'STAFF';
+type StaffRole = 'manager' | 'staff';
 
 interface StaffMember {
-  id: number;
+  user_id: number;
+  username: string;
   email: string;
   role: StaffRole;
-  status: 'accepted' | 'pending';
-  joined_at: string | null;
+  assigned_at: string | null;
 }
 
 // ── Toast ──────────────────────────────────────────────────────────────────
@@ -56,7 +56,7 @@ function useOwnerGrounds() {
   return useQuery({
     queryKey: ['owner-grounds'],
     queryFn: async () => {
-      const { data } = await apiClient.get<FutsalGround[]>('/grounds');
+      const { data } = await apiClient.get<FutsalGround[]>('/futsal/grounds/my');
       return data;
     },
   });
@@ -66,8 +66,10 @@ function useGroundStaff(groundId: string | null) {
   return useQuery({
     queryKey: ['ground-staff', groundId],
     queryFn: async () => {
-      const { data } = await apiClient.get<StaffMember[]>(`/grounds/${groundId}/staff`);
-      return data;
+      const res = await apiClient.get<{ ground_id: number; members: StaffMember[] }>(
+        `/grounds/${groundId}/members`,
+      );
+      return res.data.members ?? [];
     },
     enabled: !!groundId,
   });
@@ -76,8 +78,16 @@ function useGroundStaff(groundId: string | null) {
 function useInviteStaff(groundId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (payload: { email: string; role: StaffRole }) => {
-      const { data } = await apiClient.post(`/grounds/${groundId}/staff/invite`, payload);
+    mutationFn: async (payload: {
+      username: string;
+      email: string;
+      password: string;
+      role: StaffRole;
+    }) => {
+      const { data } = await apiClient.post('/users/create-with-role', {
+        ...payload,
+        ground_id: Number(groundId),
+      });
       return data;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['ground-staff', groundId] }),
@@ -87,8 +97,14 @@ function useInviteStaff(groundId: string) {
 function useRemoveStaff(groundId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (staffId: number) => {
-      await apiClient.delete(`/grounds/${groundId}/staff/${staffId}`);
+    mutationFn: async ({ userId, role }: { userId: number; role: string }) => {
+      await apiClient.delete('/users/remove-role', {
+        data: {
+          user_id: String(userId),
+          role_id: role,
+          domain: `ground:${groundId}`,
+        },
+      });
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['ground-staff', groundId] }),
   });
@@ -107,22 +123,24 @@ function InviteDialog({
   onSuccess: () => void;
   onError: (msg: string) => void;
 }) {
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState<StaffRole>('STAFF');
+  const [password, setPassword] = useState('');
+  const [role, setRole] = useState<StaffRole>('staff');
   const invite = useInviteStaff(groundId);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim()) return;
+    if (!username.trim() || !email.trim() || !password.trim()) return;
     invite.mutate(
-      { email: email.trim(), role },
+      { username: username.trim(), email: email.trim(), password, role },
       {
         onSuccess: () => {
           onSuccess();
           onClose();
         },
         onError: (err: unknown) => {
-          onError(extractErrorMsg(err, 'Failed to send invitation.'));
+          onError(extractErrorMsg(err, 'Failed to add staff member.'));
         },
       },
     );
@@ -131,8 +149,18 @@ function InviteDialog({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
       <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Invite Staff Member</h2>
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Add Staff Member</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-gray-700">Username</label>
+            <Input
+              type="text"
+              placeholder="john_doe"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required
+            />
+          </div>
           <div className="space-y-1">
             <label className="text-sm font-medium text-gray-700">Email</label>
             <Input
@@ -144,20 +172,30 @@ function InviteDialog({
             />
           </div>
           <div className="space-y-1">
+            <label className="text-sm font-medium text-gray-700">Password</label>
+            <Input
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </div>
+          <div className="space-y-1">
             <label className="text-sm font-medium text-gray-700">Role</label>
             <select
               value={role}
               onChange={(e) => setRole(e.target.value as StaffRole)}
               className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="STAFF">Staff</option>
-              <option value="MANAGER">Manager</option>
+              <option value="staff">Staff</option>
+              <option value="manager">Manager</option>
             </select>
           </div>
           <div className="flex gap-2 pt-2">
             <Button type="submit" isLoading={invite.isPending} className="flex-1">
               <Mail className="mr-1.5 h-4 w-4" />
-              Send Invite
+              Add Member
             </Button>
             <Button type="button" variant="outline" onClick={onClose} className="flex-1">
               Cancel
@@ -175,7 +213,7 @@ function RoleBadge({ role }: { role: StaffRole }) {
   return (
     <span
       className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-        role === 'MANAGER' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+        role === 'manager' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
       }`}
     >
       {role}
@@ -190,7 +228,7 @@ export default function OwnerTeamPage() {
   const { data: subscription } = useSubscription();
   const [selectedGroundId, setSelectedGroundId] = useState<string | null>(null);
   const [showInvite, setShowInvite] = useState(false);
-  const [removingStaffId, setRemovingStaffId] = useState<number | null>(null);
+  const [removingStaff, setRemovingStaff] = useState<{ userId: number; role: string } | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   const activeGroundId = selectedGroundId ?? grounds[0]?.id ?? null;
@@ -205,14 +243,14 @@ export default function OwnerTeamPage() {
   };
 
   const handleRemove = () => {
-    if (!removingStaffId || !activeGroundId) return;
-    removeStaff.mutate(removingStaffId, {
+    if (!removingStaff || !activeGroundId) return;
+    removeStaff.mutate(removingStaff, {
       onSuccess: () => {
-        setRemovingStaffId(null);
+        setRemovingStaff(null);
         showToast('Staff member removed.', 'success');
       },
       onError: () => {
-        setRemovingStaffId(null);
+        setRemovingStaff(null);
         showToast('Failed to remove staff member.', 'error');
       },
     });
@@ -312,7 +350,7 @@ export default function OwnerTeamPage() {
                 <tbody>
                   {staff.map((member) => (
                     <tr
-                      key={member.id}
+                      key={member.user_id}
                       className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
                     >
                       <td className="px-4 py-3 text-sm text-gray-700">{member.email}</td>
@@ -320,24 +358,18 @@ export default function OwnerTeamPage() {
                         <RoleBadge role={member.role} />
                       </td>
                       <td className="px-4 py-3">
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                            member.status === 'accepted'
-                              ? 'bg-green-100 text-green-700'
-                              : 'bg-yellow-100 text-yellow-700'
-                          }`}
-                        >
-                          {member.status}
+                        <span className="rounded-full px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700">
+                          active
                         </span>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-400">
-                        {member.joined_at
-                          ? new Date(member.joined_at).toLocaleDateString()
+                        {member.assigned_at
+                          ? new Date(member.assigned_at).toLocaleDateString()
                           : '—'}
                       </td>
                       <td className="px-4 py-3">
                         <button
-                          onClick={() => setRemovingStaffId(member.id)}
+                          onClick={() => setRemovingStaff({ userId: member.user_id, role: member.role })}
                           className="rounded p-1.5 text-red-400 hover:bg-red-50 hover:text-red-600"
                           title="Remove"
                         >
@@ -358,20 +390,20 @@ export default function OwnerTeamPage() {
         <InviteDialog
           groundId={activeGroundId}
           onClose={() => setShowInvite(false)}
-          onSuccess={() => showToast('Invitation sent successfully.', 'success')}
+          onSuccess={() => showToast('Staff member added successfully.', 'success')}
           onError={(msg) => showToast(msg, 'error')}
         />
       )}
 
       {/* Remove confirm */}
       <ConfirmDialog
-        open={removingStaffId !== null}
+        open={removingStaff !== null}
         title="Remove Staff Member?"
         description="This will revoke their access to this ground."
         confirmLabel="Remove"
         cancelLabel="Keep"
         onConfirm={handleRemove}
-        onCancel={() => setRemovingStaffId(null)}
+        onCancel={() => setRemovingStaff(null)}
         isLoading={removeStaff.isPending}
       />
     </div>

@@ -113,7 +113,7 @@ export default function FavouritesPage() {
 
   const unfavourite = useMutation({
     mutationFn: async (groundId: string) => {
-      await apiClient.delete(`/futsal/favourites/${groundId}`);
+      await apiClient.post(`/futsal/favourites/${groundId}`);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['favourites'] }),
   });

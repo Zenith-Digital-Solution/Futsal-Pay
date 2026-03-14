@@ -406,12 +406,4 @@ export function useDeleteGround() {
   });
 }
 
-export function useOwnerBookings(params?: { ground_id?: string; booking_date?: string; status_filter?: string }) {
-  return useQuery({
-    queryKey: ['owner-bookings', params],
-    queryFn: async () => {
-      const { data } = await apiClient.get<import('./use-futsal').Booking[]>('/futsal/bookings/owner', { params });
-      return data;
-    },
-  });
-}
+// Owner bookings per ground: use useGroundBookings(groundId, params) instead.
