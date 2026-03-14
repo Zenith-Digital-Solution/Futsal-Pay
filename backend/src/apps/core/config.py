@@ -261,6 +261,49 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
+
+async def load_settings_from_db() -> None:
+    """Override ``settings`` with values stored in the ``generalsettings`` table.
+
+    Called once at application startup (after the database is initialised).
+    For every row in the table the corresponding attribute on the global
+    ``settings`` object is updated, casting the stored string to the field's
+    declared Python type.  Unknown keys are silently ignored so that stale DB
+    rows never crash the application.
+    """
+    from sqlalchemy import text
+    from src.db.session import async_session_factory
+
+    try:
+        async with async_session_factory() as session:
+            result = await session.execute(text("SELECT key, value FROM generalsettings"))
+            rows = result.fetchall()
+    except Exception:
+        # Table may not exist yet on the very first run — fall back to .env.
+        return
+
+    fields = settings.model_fields
+    for key, raw_value in rows:
+        if key not in fields:
+            continue
+        field_info = fields[key]
+        # Determine the target Python type from the annotation.
+        annotation = field_info.annotation
+        try:
+            if annotation is bool or annotation == "bool":
+                coerced = raw_value.lower() in ("1", "true", "yes")
+            elif annotation is int or annotation == "int":
+                coerced = int(raw_value)
+            elif annotation is float or annotation == "float":
+                coerced = float(raw_value)
+            else:
+                coerced = raw_value
+            object.__setattr__(settings, key, coerced)
+        except (ValueError, TypeError):
+            # Malformed value in DB — keep the existing setting.
+            pass
+
+
 # ---------------------------------------------------------------------------
 # OAuth2 provider static configuration (endpoints, scopes, extra params).
 # Credentials are read from Settings above; only fixed metadata lives here.

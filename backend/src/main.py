@@ -9,7 +9,7 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
-from src.apps.core.config import settings
+from src.apps.core.config import settings, load_settings_from_db
 from src.apps.core.api import router as core_config_router
 from src.apps.core.handler import rate_limit_exceeded_handler
 from src.apps.core.middleware import SecurityHeadersMiddleware
@@ -33,6 +33,7 @@ limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
 async def lifespan(app: FastAPI):
     """Initialize DB tables, Casbin enforcer, Redis cache, and WebSocket manager on startup."""
     await init_db()
+    await load_settings_from_db()
 
     enforcer = await CasbinEnforcer.get_enforcer(engine)
     app.state.casbin_enforcer = enforcer

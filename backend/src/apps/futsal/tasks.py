@@ -61,7 +61,10 @@ def release_expired_locks():
             await db.commit()
             logger.info(f"Released {len(expired_locks)} expired booking locks.")
 
-    asyncio.get_event_loop().run_until_complete(_run())
+    try:
+        asyncio.get_event_loop().run_until_complete(_run())
+    except Exception as exc:
+        logger.error("release_expired_locks task failed: %s", exc)
 
 
 @celery_app.task(name="futsal.update_completed_bookings")
@@ -92,7 +95,10 @@ def update_completed_bookings():
             await db.commit()
             logger.info(f"Marked {updated} bookings as COMPLETED.")
 
-    asyncio.get_event_loop().run_until_complete(_run())
+    try:
+        asyncio.get_event_loop().run_until_complete(_run())
+    except Exception as exc:
+        logger.error("update_completed_bookings task failed: %s", exc)
 
 
 @celery_app.task(name="futsal.send_booking_reminders")
@@ -149,7 +155,10 @@ def send_booking_reminders():
             await db.commit()
             logger.info(f"Sent pre-play reminders for {notified} bookings.")
 
-    asyncio.get_event_loop().run_until_complete(_run())
+    try:
+        asyncio.get_event_loop().run_until_complete(_run())
+    except Exception as exc:
+        logger.error("send_booking_reminders task failed: %s", exc)
 
 
 # Register beat schedule

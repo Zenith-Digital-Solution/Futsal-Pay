@@ -20,6 +20,7 @@ async_session_factory = async_sessionmaker(engine, expire_on_commit=False)
 
 async def init_db():
     # Import all models so SQLModel.metadata knows about every table
+    import src.apps.core.models  # noqa: F401
     import src.apps.iam.models  # noqa: F401
     import src.apps.notification.models  # noqa: F401
     import src.apps.multitenancy.models  # noqa: F401

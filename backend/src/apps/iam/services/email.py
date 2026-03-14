@@ -31,8 +31,11 @@ class EmailService:
         recipients_dict = [{"name": r.name, "email": r.email} for r in recipients]
         
         # Queue email task in background
-        send_email_task.delay(subject, recipients_dict, template_name, context)
-        logger.info(f"Email task queued: Subject: {subject}, Recipients: {recipients_dict}")
+        try:
+            send_email_task.delay(subject, recipients_dict, template_name, context)
+            logger.info(f"Email task queued: Subject: {subject}, Recipients: {recipients_dict}")
+        except Exception as exc:
+            logger.error("Failed to queue email task (Subject: %s): %s", subject, exc)
 
     @staticmethod
     async def send_welcome_email(user) -> None:
@@ -42,8 +45,11 @@ class EmailService:
             "email": user.email,
             "first_name": getattr(user, 'first_name', '')
         }
-        send_welcome_email_task.delay(user_data)
-        logger.info(f"Welcome email task queued for user: {user.email}")
+        try:
+            send_welcome_email_task.delay(user_data)
+            logger.info(f"Welcome email task queued for user: {user.email}")
+        except Exception as exc:
+            logger.error("Failed to queue welcome email for %s: %s", user.email, exc)
 
     @staticmethod
     async def send_password_reset_email(user, token:str) -> None:
@@ -63,8 +69,11 @@ class EmailService:
             "email": user.email,
             "first_name": getattr(user, 'first_name', '')
         }
-        send_password_reset_email_task.delay(user_data, reset_url)
-        logger.info(f"Password reset email task queued for user: {user.email}")
+        try:
+            send_password_reset_email_task.delay(user_data, reset_url)
+            logger.info(f"Password reset email task queued for user: {user.email}")
+        except Exception as exc:
+            logger.error("Failed to queue password reset email for %s: %s", user.email, exc)
 
     @staticmethod
     async def send_verification_email(user, token: str) -> None:
@@ -84,5 +93,8 @@ class EmailService:
             "email": user.email,
             "first_name": getattr(user, 'first_name', '')
         }
-        send_verification_email_task.delay(user_data, verification_url)
-        logger.info(f"Verification email task queued for user: {user.email}")
+        try:
+            send_verification_email_task.delay(user_data, verification_url)
+            logger.info(f"Verification email task queued for user: {user.email}")
+        except Exception as exc:
+            logger.error("Failed to queue verification email for %s: %s", user.email, exc)

@@ -28,7 +28,10 @@ def daily_payout_task(self):
         return results
     except Exception as exc:
         logger.error(f"Daily payout task failed: {exc}")
-        raise self.retry(exc=exc, countdown=300)  # retry in 5 minutes
+        try:
+            raise self.retry(exc=exc, countdown=300)  # retry in 5 minutes
+        except self.MaxRetriesExceededError:
+            logger.error("Daily payout task exceeded max retries — giving up: %s", exc)
 
 
 @celery_app.task(name="payout.retry_failed")
@@ -77,7 +80,10 @@ def retry_failed_payouts():
                 db.add(record)
             await db.commit()
 
-    asyncio.get_event_loop().run_until_complete(_run())
+    try:
+        asyncio.get_event_loop().run_until_complete(_run())
+    except Exception as exc:
+        logger.error("retry_failed_payouts task failed: %s", exc)
 
 
 # Celery Beat schedule — midnight UTC daily payout

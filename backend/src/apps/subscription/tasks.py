@@ -3,27 +3,34 @@ Subscription Celery tasks:
 - Daily: expire subscriptions past their period, move to grace, then expired
 - Send renewal reminder emails at 7d / 3d / 1d before expiry
 """
+import logging
 from datetime import date, timedelta
 
 from src.apps.core.celery_app import celery_app
+
+logger = logging.getLogger(__name__)
 
 
 @celery_app.task(name="subscription.refresh_statuses", bind=True, max_retries=3)
 def refresh_subscription_statuses_task(self):
     """Daily: update subscription statuses (ACTIVE→GRACE→EXPIRED)."""
     import asyncio
-    from src.db.session import get_async_session
+    from src.db.session import async_session_factory
     from src.apps.subscription.services.subscription_service import refresh_subscription_statuses
 
     async def _run():
-        async with get_async_session() as db:
+        async with async_session_factory() as db:
             return await refresh_subscription_statuses(db)
 
     try:
         result = asyncio.get_event_loop().run_until_complete(_run())
         return result
     except Exception as exc:
-        raise self.retry(exc=exc, countdown=300)
+        logger.error("refresh_subscription_statuses task failed: %s", exc)
+        try:
+            raise self.retry(exc=exc, countdown=300)
+        except self.MaxRetriesExceededError:
+            logger.error("refresh_subscription_statuses exceeded max retries — giving up: %s", exc)
 
 
 @celery_app.task(name="subscription.send_renewal_reminders", bind=True, max_retries=3)
@@ -33,12 +40,12 @@ def send_renewal_reminders_task(self):
     Uses existing notification infrastructure (email/push).
     """
     import asyncio
-    from src.db.session import get_async_session
+    from src.db.session import async_session_factory
     from sqlmodel import select
     from src.apps.subscription.models.subscription import OwnerSubscription, SubscriptionStatus
 
     async def _run():
-        async with get_async_session() as db:
+        async with async_session_factory() as db:
             today = date.today()
             reminder_offsets = [7, 3, 1]
             sent = 0
@@ -65,14 +72,21 @@ def send_renewal_reminders_task(self):
                             ),
                         )
                         sent += 1
-                    except Exception:
-                        pass  # non-critical; don't fail the task
+                    except Exception as exc:
+                        logger.warning(
+                            "Failed to send renewal reminder to owner_id=%s: %s",
+                            sub.owner_id, exc,
+                        )
             return {"reminders_sent": sent}
 
     try:
         return asyncio.get_event_loop().run_until_complete(_run())
     except Exception as exc:
-        raise self.retry(exc=exc, countdown=300)
+        logger.error("send_renewal_reminders task failed: %s", exc)
+        try:
+            raise self.retry(exc=exc, countdown=300)
+        except self.MaxRetriesExceededError:
+            logger.error("send_renewal_reminders exceeded max retries — giving up: %s", exc)
 
 
 # ── Celery Beat schedule ──────────────────────────────────────────────────────
