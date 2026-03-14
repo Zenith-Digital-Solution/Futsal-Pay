@@ -9,12 +9,26 @@ if not settings.DATABASE_URL:
 
 _is_sqlite = settings.DATABASE_URL.startswith("sqlite")
 
-engine = create_async_engine(
-    url=settings.DATABASE_URL,
-    echo=True,
-    future=True,
-    poolclass=NullPool if _is_sqlite else AsyncAdaptedQueuePool,
-)
+if _is_sqlite:
+    engine = create_async_engine(
+        url=settings.DATABASE_URL,
+        echo=settings.DEBUG,
+        future=True,
+        poolclass=NullPool,
+        connect_args={"check_same_thread": False, "timeout": 30},
+    )
+else:
+    engine = create_async_engine(
+        url=settings.DATABASE_URL,
+        echo=settings.DEBUG,
+        future=True,
+        poolclass=AsyncAdaptedQueuePool,
+        pool_size=10,
+        max_overflow=20,
+        pool_timeout=30,
+        pool_recycle=1800,   # recycle connections after 30 min to avoid stale handles
+        pool_pre_ping=True,  # verify connection health before use — fixes intermittent errors
+    )
 
 async_session_factory = async_sessionmaker(engine, expire_on_commit=False)
 

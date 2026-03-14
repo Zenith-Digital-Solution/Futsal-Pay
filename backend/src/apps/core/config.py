@@ -81,9 +81,9 @@ class Settings(BaseSettings):
         raise ValueError("Invalid CORS origins format", v)
     
     # PostgreSQL settings
-    POSTGRES_SERVER: str = "localhost"
+    POSTGRES_SERVER: str = "db"
     POSTGRES_USER: str = "postgres"
-    POSTGRES_PASSWORD: str = "password"
+    POSTGRES_PASSWORD: str = "postgres"
     POSTGRES_DB: str = "mydatabase"
     DATABASE_URL: str | None = None
     SYNC_DATABASE_URL: str | None = None
