@@ -1,4 +1,4 @@
-from datetime import datetime, time
+from datetime import datetime, time, timezone
 from enum import Enum
 from typing import Optional, List, TYPE_CHECKING
 from sqlmodel import Field, SQLModel, Relationship, Column
@@ -48,8 +48,8 @@ class FutsalGround(FutsalGroundBase, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     amenities: Optional[dict] = Field(default=None, sa_column=Column(JSON))
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     owner: Optional["User"] = Relationship()
     images: List["GroundImage"] = Relationship(back_populates="ground")

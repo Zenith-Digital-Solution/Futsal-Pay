@@ -2,7 +2,7 @@
 Ground staff service: invite, accept, list, remove staff from grounds.
 """
 import secrets
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select, and_
@@ -62,7 +62,7 @@ async def accept_invite(
         raise ValueError("This invite has already been accepted.")
 
     staff.user_id = user.id
-    staff.accepted_at = datetime.utcnow()
+    staff.accepted_at = datetime.now(timezone.utc)
     staff.invite_token = None  # one-time use
     staff.is_active = True
     db.add(staff)

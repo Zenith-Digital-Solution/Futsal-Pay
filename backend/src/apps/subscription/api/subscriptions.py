@@ -1,7 +1,7 @@
 """
 Subscription API: plan management (superuser) + subscribe/renew/cancel (owner).
 """
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict
@@ -158,7 +158,7 @@ async def update_plan(
     for key, val in data.model_dump(exclude_unset=True).items():
         if hasattr(plan, key) and key not in ("id", "created_at"):
             setattr(plan, key, val)
-    plan.updated_at = datetime.utcnow()
+    plan.updated_at = datetime.now(timezone.utc)
     db.add(plan)
     await db.commit()
     await db.refresh(plan)
@@ -178,7 +178,7 @@ async def delete_plan(
     if not plan:
         raise HTTPException(status_code=404, detail="Plan not found.")
     plan.is_active = False
-    plan.updated_at = datetime.utcnow()
+    plan.updated_at = datetime.now(timezone.utc)
     db.add(plan)
     await db.commit()
 
@@ -491,7 +491,7 @@ async def apply_limit_adjustment(
     """
     from src.apps.futsal.models.ground import FutsalGround
     from src.apps.subscription.models.ground_staff import GroundStaff
-    from datetime import datetime
+    from datetime import datetime, timezone
 
     disabled_grounds, disabled_staff = [], []
 
@@ -500,7 +500,7 @@ async def apply_limit_adjustment(
         if ground and ground.owner_id == current_user.id:
             ground.is_active = False
             ground.disabled_by_limit = True
-            ground.updated_at = datetime.utcnow()
+            ground.updated_at = datetime.now(timezone.utc)
             db.add(ground)
             disabled_grounds.append(gid)
 

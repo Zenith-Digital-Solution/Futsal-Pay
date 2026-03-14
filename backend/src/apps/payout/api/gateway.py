@@ -1,5 +1,5 @@
 """Payout gateway configuration API."""
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Annotated, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -95,7 +95,7 @@ async def update_gateway(
     gateway.account_name = data.account_name
     gateway.account_number_hint = _mask_hint(data.credentials, data.provider)
     gateway.is_verified = False  # Re-verify required after credentials change
-    gateway.updated_at = datetime.utcnow()
+    gateway.updated_at = datetime.now(timezone.utc)
     db.add(gateway)
     await db.commit()
     await db.refresh(gateway)
@@ -118,7 +118,7 @@ async def verify_owner_gateway(
     if not gateway:
         raise HTTPException(status_code=404, detail="Gateway not found.")
     gateway.is_verified = True
-    gateway.updated_at = datetime.utcnow()
+    gateway.updated_at = datetime.now(timezone.utc)
     db.add(gateway)
     await db.commit()
     await db.refresh(gateway)

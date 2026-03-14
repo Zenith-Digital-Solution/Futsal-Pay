@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, TYPE_CHECKING
 from sqlmodel import Field, SQLModel, Relationship, UniqueConstraint
 
@@ -28,8 +28,8 @@ class Review(ReviewBase, table=True):
     owner_reply: Optional[str] = Field(default=None, max_length=1000)
     owner_replied_at: Optional[datetime] = Field(default=None)
     is_verified: bool = Field(default=True)  # True when booking status was COMPLETED
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     user: Optional["User"] = Relationship()
     ground: Optional["FutsalGround"] = Relationship(back_populates="reviews")

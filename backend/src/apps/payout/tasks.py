@@ -4,7 +4,7 @@ Celery tasks for the payout app.
 - retry_failed_payouts: retry failed payout records
 """
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import logging
 
 from src.apps.core.celery_app import celery_app
@@ -64,7 +64,7 @@ def retry_failed_payouts():
                 if success:
                     record.status = PayoutStatus.COMPLETED
                     record.transaction_ref = ref
-                    record.completed_at = datetime.utcnow()
+                    record.completed_at = datetime.now(timezone.utc)
                     from src.apps.payout.models.payout_ledger import PayoutLedger
                     ledgers = await db.execute(
                         select(PayoutLedger).where(PayoutLedger.payout_id == record.id)

@@ -2,7 +2,7 @@
 Owner subscription model — tracks an owner's active subscription.
 Payments reference the existing PaymentTransaction table.
 """
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from enum import Enum
 from typing import Optional, TYPE_CHECKING
 from sqlmodel import Field, SQLModel, Relationship
@@ -48,8 +48,8 @@ class OwnerSubscription(SQLModel, table=True):
         description="When True, cancel at current_period_end instead of renewing"
     )
     cancelled_at: Optional[datetime] = Field(default=None)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     owner: Optional["User"] = Relationship()
     plan: Optional["SubscriptionPlan"] = Relationship()

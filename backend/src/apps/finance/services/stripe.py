@@ -19,7 +19,7 @@ Flow:
   4. POST /payments/verify/ with provider=stripe and pidx=<session_id>
 """
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 
 import stripe
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -161,7 +161,7 @@ class StripeService(BasePaymentProvider):
             "payment_status": session.payment_status,
             "payment_intent": session.payment_intent,
         })
-        tx.updated_at = datetime.now()
+        tx.updated_at = datetime.now(timezone.utc)
         db.add(tx)
         await db.commit()
         await db.refresh(tx)

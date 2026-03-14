@@ -1,5 +1,5 @@
 from typing import Optional, TYPE_CHECKING
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from sqlmodel import SQLModel, Field, Relationship
 
@@ -42,8 +42,8 @@ class Tenant(TenantBase, table=True):
         foreign_key="user.id",
         description="User ID of the tenant owner",
     )
-    created_at: datetime = Field(default_factory=datetime.now)
-    updated_at: datetime = Field(default_factory=datetime.now)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Relationships
     members: list["TenantMember"] = Relationship(back_populates="tenant")
@@ -78,7 +78,7 @@ class TenantMember(TenantMemberBase, table=True):
         index=True,
         ondelete="CASCADE",
     )
-    joined_at: datetime = Field(default_factory=datetime.now)
+    joined_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Relationships
     tenant: Optional[Tenant] = Relationship(back_populates="members")
@@ -108,7 +108,7 @@ class TenantInvitation(TenantInvitationBase, table=True):
     )
     token: str = Field(max_length=255, unique=True, index=True, description="One-time invitation token")
     expires_at: datetime = Field(description="When the invitation expires")
-    created_at: datetime = Field(default_factory=datetime.now)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     accepted_at: Optional[datetime] = Field(default=None)
 
     # Relationships

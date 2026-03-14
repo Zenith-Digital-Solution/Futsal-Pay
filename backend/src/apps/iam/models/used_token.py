@@ -1,5 +1,5 @@
 from typing import Optional, TYPE_CHECKING
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlmodel import SQLModel, Field, Relationship
 
 if TYPE_CHECKING:
@@ -18,7 +18,7 @@ class UsedTokenBase(SQLModel):
         description="Purpose of the token (e.g., email_verification, password_reset, ip_action)"
     )
     used_at: datetime = Field(
-        default_factory=datetime.now,
+        default_factory=lambda: datetime.now(timezone.utc),
         description="When the token was used"
     )
 

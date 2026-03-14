@@ -2,7 +2,7 @@
 Grounds API: CRUD + images + closures + slot availability.
 """
 import re
-from datetime import date
+from datetime import date, timezone
 from typing import Annotated, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -192,8 +192,8 @@ async def update_ground(
         raise HTTPException(status_code=403, detail="Not authorized.")
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(ground, field, value)
-    from datetime import datetime
-    ground.updated_at = datetime.utcnow()
+    from datetime import datetime, timezone
+    ground.updated_at = datetime.now(timezone.utc)
     db.add(ground)
     await db.commit()
     await db.refresh(ground)
@@ -382,7 +382,7 @@ async def add_closure(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    from datetime import datetime as dt
+    from datetime import datetime as dt, timezone
     from src.apps.futsal.models.booking import Booking, BookingStatus
     from src.apps.notification.models.notification import Notification, NotificationType
 
@@ -497,8 +497,8 @@ async def re_enable_ground(
 
     ground.is_active = True
     ground.disabled_by_limit = False
-    from datetime import datetime
-    ground.updated_at = datetime.utcnow()
+    from datetime import datetime, timezone
+    ground.updated_at = datetime.now(timezone.utc)
     db.add(ground)
     await db.commit()
     await db.refresh(ground)

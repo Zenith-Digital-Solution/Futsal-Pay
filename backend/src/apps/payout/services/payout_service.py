@@ -14,7 +14,7 @@ PAYOUT_MODE = "DIRECT"
 
 Switch by setting PAYOUT_MODE in your .env file.
 """
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from enum import Enum
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -122,8 +122,8 @@ async def _settle_direct(
         payout_mode=PayoutMode.DIRECT.value,
         provider="DIRECT",
         transaction_ref="DIRECT-SETTLED",
-        initiated_at=datetime.utcnow(),
-        completed_at=datetime.utcnow(),
+        initiated_at=datetime.now(timezone.utc),
+        completed_at=datetime.now(timezone.utc),
     )
     db.add(record)
     await db.flush()
@@ -182,7 +182,7 @@ async def _process_platform_payout(
             status=PayoutStatus.ON_HOLD,
             payout_mode=PayoutMode.PLATFORM.value,
             last_error="No verified payment gateway configured.",
-            initiated_at=datetime.utcnow(),
+            initiated_at=datetime.now(timezone.utc),
         ))
         await db.commit()
         return
@@ -200,7 +200,7 @@ async def _process_platform_payout(
         status=PayoutStatus.PROCESSING,
         payout_mode=PayoutMode.PLATFORM.value,
         provider=gateway.provider.value,
-        initiated_at=datetime.utcnow(),
+        initiated_at=datetime.now(timezone.utc),
     )
     db.add(record)
     await db.flush()
@@ -210,7 +210,7 @@ async def _process_platform_payout(
     if success:
         record.status = PayoutStatus.COMPLETED
         record.transaction_ref = ref_or_error
-        record.completed_at = datetime.utcnow()
+        record.completed_at = datetime.now(timezone.utc)
         for entry in entries:
             entry.settled = True
             entry.payout_mode = PayoutMode.PLATFORM.value
@@ -317,7 +317,7 @@ async def _bank_transfer_payout(creds: dict, amount: float) -> tuple[bool, str]:
         f"({creds.get('bank_name')}, SWIFT: {creds.get('swift_code', 'N/A')})"
     )
     # In production: call your bank's payment API here.
-    return True, f"BANK-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
+    return True, f"BANK-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
 
 
 # ── Platform balance helper (for superuser dashboard) ─────────────────────────

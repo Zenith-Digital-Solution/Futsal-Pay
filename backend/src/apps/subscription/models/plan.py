@@ -3,7 +3,7 @@ Subscription plan model — created and managed by superuser.
 Owners choose a plan and pay to access the owner dashboard.
 Supports monthly, quarterly, and yearly billing intervals.
 """
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from sqlmodel import Field, SQLModel
 
@@ -24,5 +24,5 @@ class SubscriptionPlan(SQLModel, table=True):
     features: Optional[str] = Field(default=None, description="JSON list of feature strings")
     is_active: bool = Field(default=True)
     is_public: bool = Field(default=True, description="Shown to owners in plan picker")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

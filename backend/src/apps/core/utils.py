@@ -1,6 +1,6 @@
 import uuid
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import wraps
 from src.apps.core.config import settings
 
@@ -15,7 +15,7 @@ def get_upload_path(instance, filename):
     """
     Generate a unique file path for uploading files, organized by date.
     """
-    date_path = datetime.now().strftime("%Y/%m/%d")  # Create a date-based path
+    date_path = datetime.now(timezone.utc).strftime("%Y/%m/%d")  # Create a date-based path
     unique_filename = generate_unique_filename(instance, filename)  # Generate a unique filename
     return os.path.join("uploads", date_path, unique_filename)  # Combine to create the full upload path
 

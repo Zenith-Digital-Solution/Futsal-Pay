@@ -4,7 +4,7 @@ Computes available time slots for a given ground on a given date,
 respecting: operating hours, slot duration, existing bookings,
 booking locks, and ground closures.
 """
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta, timezone
 from typing import List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
@@ -64,7 +64,7 @@ async def get_available_slots(
     ]
 
     # Fetch active booking locks (not expired)
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     locks_result = await db.execute(
         select(BookingLock).where(
             BookingLock.ground_id == ground.id,

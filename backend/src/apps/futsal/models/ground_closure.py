@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Optional, TYPE_CHECKING
 from sqlmodel import Field, SQLModel, Relationship
 
@@ -17,6 +17,6 @@ class GroundClosure(GroundClosureBase, table=True):
     __tablename__ = "ground_closures"  # type: ignore
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     ground: Optional["FutsalGround"] = Relationship(back_populates="closures")

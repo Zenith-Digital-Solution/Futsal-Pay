@@ -16,7 +16,7 @@ Flow:
   4. POST /payments/verify/ with provider=paypal, pidx=<paymentId>, extra oid=<PayerID>
 """
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 
 import paypalrestsdk
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -200,7 +200,7 @@ class PayPalService(BasePaymentProvider):
         tx.status = our_status
         tx.provider_transaction_id = sale_id or payment_id
         tx.extra_data = json.dumps({"payment_id": payment.id, "state": payment.state})
-        tx.updated_at = datetime.now()
+        tx.updated_at = datetime.now(timezone.utc)
         db.add(tx)
         await db.commit()
         await db.refresh(tx)

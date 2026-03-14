@@ -1,5 +1,5 @@
 from typing import Optional, TYPE_CHECKING
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlmodel import Field, SQLModel, Relationship
 
 if TYPE_CHECKING:
@@ -80,7 +80,7 @@ class User(UserBase, table=True):
         description="Provider-specific user ID for social login"
     )
     created_at: datetime = Field(
-        default_factory=datetime.now,
+        default_factory=lambda: datetime.now(timezone.utc),
         description="Timestamp when the user was created"
     )
     

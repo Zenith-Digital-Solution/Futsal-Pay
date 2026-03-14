@@ -1,5 +1,5 @@
 """Request and token utility helpers."""
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import and_, update
@@ -30,5 +30,5 @@ async def revoke_tokens_for_ip(
             TokenTracking.ip_address == ip_address,
             TokenTracking.is_active == True,
         ))
-        .values(is_active=False, revoked_at=datetime.now(), revoke_reason=reason)
+        .values(is_active=False, revoked_at=datetime.now(timezone.utc), revoke_reason=reason)
     )

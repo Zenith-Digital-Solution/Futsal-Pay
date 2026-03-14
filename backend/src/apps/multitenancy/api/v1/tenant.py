@@ -2,7 +2,7 @@
 Tenant (multitenancy) API endpoints — CRUD, member management, invitations.
 """
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -189,7 +189,7 @@ async def update_tenant(
     update_fields = data.model_dump(exclude_unset=True)
     for field, value in update_fields.items():
         setattr(tenant, field, value)
-    tenant.updated_at = datetime.now()
+    tenant.updated_at = datetime.now(timezone.utc)
 
     await db.commit()
     await db.refresh(tenant)
@@ -362,7 +362,7 @@ async def invite_member(
         role=data.role,
         invited_by=current_user.id,
         token=str(uuid.uuid4()),
-        expires_at=datetime.now() + timedelta(hours=_INVITATION_TTL_HOURS),
+        expires_at=datetime.now(timezone.utc) + timedelta(hours=_INVITATION_TTL_HOURS),
     )
     db.add(invitation)
     await db.commit()
@@ -424,7 +424,7 @@ async def accept_invitation(
             detail=f"Invitation is {invitation.status}",
         )
 
-    if invitation.expires_at < datetime.now():
+    if invitation.expires_at < datetime.now(timezone.utc):
         invitation.status = InvitationStatus.EXPIRED
         await db.commit()
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invitation has expired")
@@ -457,7 +457,7 @@ async def accept_invitation(
     db.add(membership)
 
     invitation.status = InvitationStatus.ACCEPTED
-    invitation.accepted_at = datetime.now()
+    invitation.accepted_at = datetime.now(timezone.utc)
     await db.commit()
     await db.refresh(membership)
 

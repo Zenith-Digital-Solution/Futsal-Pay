@@ -3,7 +3,7 @@ from typing import Annotated, List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
-from datetime import datetime
+from datetime import datetime, timezone
 
 from src.apps.iam.api.deps import get_current_user, get_db
 from src.apps.iam.models.user import User
@@ -173,7 +173,7 @@ async def update_review(
         raise HTTPException(status_code=403, detail="Not authorized.")
     for k, v in data.model_dump(exclude_unset=True).items():
         setattr(review, k, v)
-    review.updated_at = datetime.utcnow()
+    review.updated_at = datetime.now(timezone.utc)
     db.add(review)
     await db.commit()
     await db.refresh(review)
@@ -212,7 +212,7 @@ async def owner_reply(
     if not ground or ground.owner_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized.")
     review.owner_reply = data.reply
-    review.owner_replied_at = datetime.utcnow()
+    review.owner_replied_at = datetime.now(timezone.utc)
     db.add(review)
     await db.commit()
     await db.refresh(review)

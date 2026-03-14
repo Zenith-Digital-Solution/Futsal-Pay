@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, TYPE_CHECKING
 from sqlmodel import Field, SQLModel, Relationship, UniqueConstraint
 
@@ -29,6 +29,6 @@ class PayoutLedger(SQLModel, table=True):
     payout_mode: str = Field(default="PLATFORM", max_length=10)
     settled: bool = Field(default=False, index=True)
     payout_id: Optional[int] = Field(default=None, foreign_key="payout_records.id")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     payout: Optional["PayoutRecord"] = Relationship(back_populates="ledger_entries")

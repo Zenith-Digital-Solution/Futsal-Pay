@@ -6,7 +6,7 @@ Celery tasks for the futsal app.
 - expire_loyalty_points: monthly cleanup
 """
 import asyncio
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 import logging
 
 from src.apps.core.celery_app import celery_app
@@ -24,7 +24,7 @@ def release_expired_locks():
 
     async def _run():
         async with async_session_factory() as db:
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
             # Delete expired locks
             expired = await db.execute(
                 select(BookingLock).where(BookingLock.expires_at <= now)
@@ -76,7 +76,7 @@ def update_completed_bookings():
     async def _run():
         async with async_session_factory() as db:
             from sqlmodel import select
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
             today = now.date()
             result = await db.execute(
                 select(Booking).where(
@@ -113,7 +113,7 @@ def send_booking_reminders():
     async def _run():
         async with async_session_factory() as db:
             from sqlmodel import select
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
             # Window: bookings starting in 1.75 – 2.25 hours that haven't been reminded yet
             window_start = now + timedelta(hours=1, minutes=45)
             window_end   = now + timedelta(hours=2, minutes=15)

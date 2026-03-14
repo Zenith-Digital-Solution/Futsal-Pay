@@ -2,7 +2,7 @@
 Ground staff model — links a tenant member to a specific ground with a role.
 Owners can invite managers who manage bookings/analytics on their behalf.
 """
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional, TYPE_CHECKING
 from sqlmodel import Field, SQLModel, UniqueConstraint, Relationship
@@ -37,7 +37,7 @@ class GroundStaff(SQLModel, table=True):
     )
     invite_email: str = Field(max_length=255, description="Email the invite was sent to")
     accepted_at: Optional[datetime] = Field(default=None)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     ground: Optional["FutsalGround"] = Relationship()
     user: Optional["User"] = Relationship(

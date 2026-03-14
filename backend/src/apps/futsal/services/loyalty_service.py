@@ -28,8 +28,8 @@ async def earn_points(db: AsyncSession, user_id: int, booking_id: int, amount_np
     account = await get_or_create_account(db, user_id)
     account.points_balance += points
     account.total_earned += points
-    from datetime import datetime
-    account.updated_at = datetime.utcnow()
+    from datetime import datetime, timezone
+    account.updated_at = datetime.now(timezone.utc)
     db.add(account)
 
     tx = LoyaltyTransaction(
@@ -57,8 +57,8 @@ async def redeem_points(
     discount = round(points_to_redeem * POINTS_TO_NPR_RATE, 2)
     account.points_balance -= points_to_redeem
     account.total_redeemed += points_to_redeem
-    from datetime import datetime
-    account.updated_at = datetime.utcnow()
+    from datetime import datetime, timezone
+    account.updated_at = datetime.now(timezone.utc)
     db.add(account)
 
     tx = LoyaltyTransaction(

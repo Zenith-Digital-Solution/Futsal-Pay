@@ -1,13 +1,13 @@
 from typing import Optional, TYPE_CHECKING
 from sqlmodel import SQLModel, Field, Relationship
-from datetime import datetime
+from datetime import datetime, timezone
 
 if TYPE_CHECKING:
     from .user import User
 
 class BaseLoginAttempt(SQLModel):
     timestamp: datetime = Field(
-        default_factory=datetime.now,
+        default_factory=lambda: datetime.now(timezone.utc),
         description="Timestamp of when the login attempt occurred"
     )
     ip_address: str = Field(

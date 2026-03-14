@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional, TYPE_CHECKING
 from sqlmodel import Field, SQLModel, Relationship
@@ -36,7 +36,7 @@ class OwnerPaymentGateway(SQLModel, table=True):
         default=False,
         description="Superuser must verify credentials before first payout"
     )
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     owner: Optional["User"] = Relationship()

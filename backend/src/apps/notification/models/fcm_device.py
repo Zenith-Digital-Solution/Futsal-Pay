@@ -1,5 +1,5 @@
 """FCM device token model — stores per-device Firebase Cloud Messaging tokens."""
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Optional
 
 from sqlmodel import Field, Relationship, SQLModel
@@ -42,8 +42,8 @@ class FCMDeviceToken(SQLModel, table=True):
         default=True,
         description="Whether this token is still considered valid",
     )
-    created_at: datetime = Field(default_factory=datetime.now)
-    updated_at: datetime = Field(default_factory=datetime.now)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Relationship
     user: Optional["User"] = Relationship(back_populates="fcm_tokens")

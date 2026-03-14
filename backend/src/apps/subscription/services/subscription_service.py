@@ -1,7 +1,7 @@
 """
 Subscription service: activate, renew, check status, grace period logic.
 """
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
@@ -28,7 +28,7 @@ async def start_trial(
     if not plan:
         raise ValueError("Plan not found.")
 
-    trial_end = datetime.utcnow() + timedelta(days=plan.trial_days) if plan.trial_days > 0 else None
+    trial_end = datetime.now(timezone.utc) + timedelta(days=plan.trial_days) if plan.trial_days > 0 else None
     sub = OwnerSubscription(
         owner_id=owner_id,
         plan_id=plan_id,
@@ -80,7 +80,7 @@ async def activate_subscription(
         sub.last_payment_transaction_id = transaction_id
         sub.billing_interval = billing_interval
         sub.cancel_at_period_end = False
-        sub.updated_at = datetime.utcnow()
+        sub.updated_at = datetime.now(timezone.utc)
     else:
         sub = OwnerSubscription(
             owner_id=owner_id,
@@ -118,11 +118,11 @@ async def cancel_subscription(
 
     if immediately:
         sub.status = SubscriptionStatus.CANCELLED
-        sub.cancelled_at = datetime.utcnow()
+        sub.cancelled_at = datetime.now(timezone.utc)
     else:
         sub.cancel_at_period_end = True
 
-    sub.updated_at = datetime.utcnow()
+    sub.updated_at = datetime.now(timezone.utc)
     db.add(sub)
     await db.commit()
     await db.refresh(sub)
@@ -142,7 +142,7 @@ def is_subscription_active(sub: Optional[OwnerSubscription]) -> bool:
     """Return True if the owner has dashboard access (active, trialing, or grace)."""
     if sub is None:
         return False
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     if sub.status == SubscriptionStatus.TRIALING:
         return sub.trial_ends_at is None or sub.trial_ends_at > now
     if sub.status in (SubscriptionStatus.ACTIVE, SubscriptionStatus.PAST_DUE):
@@ -194,9 +194,9 @@ async def refresh_subscription_statuses(db: AsyncSession) -> dict:
             # Handle cancel_at_period_end
             if sub.cancel_at_period_end and sub.current_period_end < today:
                 sub.status = SubscriptionStatus.CANCELLED
-                sub.cancelled_at = datetime.utcnow()
+                sub.cancelled_at = datetime.now(timezone.utc)
 
-        sub.updated_at = datetime.utcnow()
+        sub.updated_at = datetime.now(timezone.utc)
         db.add(sub)
 
     await db.commit()

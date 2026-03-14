@@ -14,7 +14,7 @@ Endpoints
   POST   /notifications/fcm/unsubscribe-topic/   — (superuser) unsubscribe tokens from a topic
 """
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -75,7 +75,7 @@ async def register_fcm_token(
         if data.device_name is not None:
             device.device_name = data.device_name
         device.is_active = True
-        device.updated_at = datetime.now()
+        device.updated_at = datetime.now(timezone.utc)
     else:
         device = FCMDeviceToken(
             user_id=current_user.id,
@@ -142,7 +142,7 @@ async def update_fcm_token(
 
     for field, value in data.model_dump(exclude_none=True).items():
         setattr(device, field, value)
-    device.updated_at = datetime.now()
+    device.updated_at = datetime.now(timezone.utc)
 
     db.add(device)
     await db.commit()
@@ -176,7 +176,7 @@ async def deactivate_fcm_token(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="FCM token not found")
 
     device.is_active = False
-    device.updated_at = datetime.now()
+    device.updated_at = datetime.now(timezone.utc)
     db.add(device)
     await db.commit()
 
@@ -210,7 +210,7 @@ async def deactivate_fcm_token_by_value(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="FCM token not found")
 
     device.is_active = False
-    device.updated_at = datetime.now()
+    device.updated_at = datetime.now(timezone.utc)
     db.add(device)
     await db.commit()
 
@@ -267,7 +267,7 @@ async def send_fcm_to_user(
         for device in devices:
             if device.fcm_token in failed_set:
                 device.is_active = False
-                device.updated_at = datetime.now()
+                device.updated_at = datetime.now(timezone.utc)
                 db.add(device)
         await db.commit()
 

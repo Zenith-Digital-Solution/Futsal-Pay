@@ -1,4 +1,4 @@
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timezone
 from enum import Enum
 from typing import Optional, TYPE_CHECKING
 from sqlmodel import Field, SQLModel, Relationship
@@ -48,8 +48,8 @@ class Booking(BookingBase, table=True):
     qr_used: bool = Field(default=False)
     cancelled_at: Optional[datetime] = Field(default=None)
     pre_play_reminder_sent: bool = Field(default=False, description="True once the 2-hour pre-play reminder has been dispatched")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     user: Optional["User"] = Relationship()
     ground: Optional["FutsalGround"] = Relationship(back_populates="bookings")

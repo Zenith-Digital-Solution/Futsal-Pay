@@ -21,7 +21,7 @@ import hashlib
 import hmac
 import json
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -214,7 +214,7 @@ class EsewaService(BasePaymentProvider):
             "callback": decoded,
             "status_api": esewa_status_data,
         })
-        tx.updated_at = datetime.now()
+        tx.updated_at = datetime.now(timezone.utc)
         db.add(tx)
         await db.commit()
         await db.refresh(tx)

@@ -1,5 +1,5 @@
 from typing import Optional, TYPE_CHECKING
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlmodel import Field, SQLModel, Relationship
 
 from .user import User
@@ -29,11 +29,11 @@ class Role(RoleBase, table=True):
         primary_key=True
     )
     created_at: datetime = Field(
-        default_factory=datetime.now,
+        default_factory=lambda: datetime.now(timezone.utc),
         description="Timestamp when the role was created"
     )
     updated_at: datetime = Field(
-        default_factory=datetime.now,
+        default_factory=lambda: datetime.now(timezone.utc),
         description="Timestamp when the role was last updated"
     )
     
@@ -64,7 +64,7 @@ class Permission(PermissionBase, table=True):
         primary_key=True
     )
     created_at: datetime = Field(
-        default_factory=datetime.now,
+        default_factory=lambda: datetime.now(timezone.utc),
         description="Timestamp when the permission was created"
     )
     # The user who created this permission (owner or superuser)
@@ -110,7 +110,7 @@ class UserRole(SQLModel, table=True):
         description="Domain scope: 'global' or 'ground:{id}'"
     )
     assigned_at: datetime = Field(
-        default_factory=datetime.now,
+        default_factory=lambda: datetime.now(timezone.utc),
         description="Timestamp when the role was assigned to the user"
     )
     
@@ -136,7 +136,7 @@ class RolePermission(SQLModel, table=True):
         description="Permission ID"
     )
     granted_at: datetime = Field(
-        default_factory=datetime.now,
+        default_factory=lambda: datetime.now(timezone.utc),
         description="Timestamp when the permission was granted to the role"
     )
     

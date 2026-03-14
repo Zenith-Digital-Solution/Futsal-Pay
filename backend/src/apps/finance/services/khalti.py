@@ -12,7 +12,7 @@ Test card (Khalti wallet):
   OTP    : 987654
 """
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -180,7 +180,7 @@ class KhaltiService(BasePaymentProvider):
         tx.status = our_status
         tx.provider_transaction_id = transaction_id_provider
         tx.extra_data = json.dumps(data)
-        tx.updated_at = datetime.now()
+        tx.updated_at = datetime.now(timezone.utc)
         db.add(tx)
         await db.commit()
         await db.refresh(tx)

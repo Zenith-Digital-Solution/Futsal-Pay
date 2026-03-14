@@ -1,5 +1,5 @@
 """Notification ORM model."""
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Optional
 
@@ -28,7 +28,7 @@ class Notification(SQLModel, table=True):
     type: NotificationType = Field(default=NotificationType.INFO)
     is_read: bool = Field(default=False)
     extra_data: Optional[Any] = Field(default=None, sa_type=JSON)
-    created_at: datetime = Field(default_factory=datetime.now)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Relationships
     user: Optional["User"] = Relationship(back_populates="notifications")

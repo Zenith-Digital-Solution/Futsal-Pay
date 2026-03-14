@@ -2,7 +2,7 @@
 Booking service with race-condition-safe slot locking.
 Uses SELECT FOR UPDATE to prevent simultaneous bookings on the same slot.
 """
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta, timezone
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -72,7 +72,7 @@ async def _check_slot_available(
         raise SlotAlreadyBookedError("This slot is already booked.")
 
     # Check booking locks (pending payment by another user)
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     lock_stmt = (
         select(BookingLock)
         .where(
@@ -199,8 +199,8 @@ async def create_booking(
         end_time=data.end_time,
         locked_by_booking_id=booking.id,
         locked_by_user_id=user_id,
-        locked_at=datetime.utcnow(),
-        expires_at=datetime.utcnow() + timedelta(minutes=LOCK_TTL_MINUTES),
+        locked_at=datetime.now(timezone.utc),
+        expires_at=datetime.now(timezone.utc) + timedelta(minutes=LOCK_TTL_MINUTES),
     )
     db.add(lock)
     await db.flush()
@@ -226,7 +226,7 @@ async def create_booking(
 async def confirm_booking(db: AsyncSession, booking: Booking) -> Booking:
     """Mark booking as CONFIRMED (called after payment success)."""
     booking.status = BookingStatus.CONFIRMED
-    booking.updated_at = datetime.utcnow()
+    booking.updated_at = datetime.now(timezone.utc)
     db.add(booking)
 
     # Remove the booking lock — slot is now hard-booked
@@ -284,15 +284,15 @@ async def cancel_booking(
     if not is_owner:
         # Check 2-hour cancellation grace window
         booking_datetime = datetime.combine(booking.booking_date, booking.start_time)
-        if datetime.utcnow() > booking_datetime - timedelta(hours=CANCELLATION_GRACE_HOURS):
+        if datetime.now(timezone.utc) > booking_datetime - timedelta(hours=CANCELLATION_GRACE_HOURS):
             raise BookingNotEligibleForCancelError(
                 "Cancellations must be made at least 1 hour before the match start time."
             )
 
     booking.status = BookingStatus.CANCELLED
     booking.cancellation_reason = reason
-    booking.cancelled_at = datetime.utcnow()
-    booking.updated_at = datetime.utcnow()
+    booking.cancelled_at = datetime.now(timezone.utc)
+    booking.updated_at = datetime.now(timezone.utc)
     db.add(booking)
 
     # Remove any payout ledger entry (unsettled only)
@@ -325,7 +325,7 @@ async def cancel_booking(
 async def complete_booking(db: AsyncSession, booking: Booking) -> Booking:
     """Mark booking COMPLETED (called by Celery task or QR check-in)."""
     booking.status = BookingStatus.COMPLETED
-    booking.updated_at = datetime.utcnow()
+    booking.updated_at = datetime.now(timezone.utc)
     db.add(booking)
     await db.commit()
     await db.refresh(booking)
