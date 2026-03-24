@@ -1,15 +1,23 @@
 import type { User } from '@/types';
 import { apiClient } from '@/lib/api-client';
 
+function normalizeRoles(user: User): Set<string> {
+  return new Set((user.roles ?? []).map((r) => String(r).trim().toLowerCase()));
+}
+
+export function userHasRole(user: User, role: string): boolean {
+  return normalizeRoles(user).has(role.toLowerCase());
+}
+
 /**
  * Returns the appropriate dashboard path for a user based on their role hierarchy.
  * Priority: superuser > owner > manager > tenant > user (default dashboard)
  */
 export function getDashboardPath(user: User): string {
   if (user.is_superuser) return '/admin/dashboard';
-  if (user.roles?.includes('owner')) return '/owner/dashboard';
-  if (user.roles?.includes('manager')) return '/manager/dashboard';
-  if (user.roles?.includes('tenant')) return '/tenant/dashboard';
+  if (userHasRole(user, 'owner')) return '/owner/dashboard';
+  if (userHasRole(user, 'manager')) return '/manager/dashboard';
+  if (userHasRole(user, 'tenant')) return '/tenant/dashboard';
   return '/dashboard';
 }
 
@@ -20,7 +28,7 @@ export function getDashboardPath(user: User): string {
 export async function getPostLoginPath(user: User): Promise<string> {
   if (user.is_superuser) return '/admin/dashboard';
 
-  if (user.roles?.includes('owner')) {
+  if (userHasRole(user, 'owner')) {
     try {
       const { data } = await apiClient.get('/subscriptions/me');
       if (!data.is_active) return '/owner/subscription';
@@ -31,7 +39,7 @@ export async function getPostLoginPath(user: User): Promise<string> {
     return '/owner/dashboard';
   }
 
-  if (user.roles?.includes('manager')) return '/manager/dashboard';
-  if (user.roles?.includes('tenant')) return '/tenant/dashboard';
+  if (userHasRole(user, 'manager')) return '/manager/dashboard';
+  if (userHasRole(user, 'tenant')) return '/tenant/dashboard';
   return '/dashboard';
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -26,6 +27,7 @@ interface AdminGround {
   is_active: boolean;
   average_rating: number;
   rating_count: number;
+  image_url?: string;
 }
 
 type VerifiedFilter = 'all' | 'verified' | 'unverified';
@@ -93,6 +95,11 @@ export default function AdminGroundsPage() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Grounds Management</h1>
         <p className="text-gray-500 text-sm">Review, verify, and manage all registered futsal grounds</p>
+        <div className="mt-3">
+          <Link href="/admin/grounds/new">
+            <Button>Add New Ground</Button>
+          </Link>
+        </div>
       </div>
 
       {/* Stats row */}
@@ -194,10 +201,25 @@ export default function AdminGroundsPage() {
                     <tr key={ground.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
                       {/* Ground info */}
                       <td className="px-4 py-3">
-                        <p className="font-medium text-gray-900">{ground.name}</p>
-                        <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
-                          <MapPin className="h-3 w-3" />{ground.location}
-                        </p>
+                        <div className="flex items-center gap-3">
+                          {ground.image_url ? (
+                            <img
+                              src={ground.image_url}
+                              alt={ground.name}
+                              className="h-10 w-10 rounded-md object-cover border border-gray-200"
+                            />
+                          ) : (
+                            <div className="h-10 w-10 rounded-md border border-gray-200 bg-gray-100 flex items-center justify-center text-gray-400">
+                              <MapPin className="h-4 w-4" />
+                            </div>
+                          )}
+                          <div>
+                            <p className="font-medium text-gray-900">{ground.name}</p>
+                            <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
+                              <MapPin className="h-3 w-3" />{ground.location}
+                            </p>
+                          </div>
+                        </div>
                       </td>
 
                       {/* Owner */}

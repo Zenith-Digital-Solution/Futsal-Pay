@@ -4,7 +4,7 @@ Grounds API: CRUD + images + closures + slot availability.
 import re
 from datetime import date, timezone
 from typing import Annotated, List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, status
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col, select, func, or_, and_
 
@@ -54,6 +54,7 @@ async def _get_ground_or_404(db: AsyncSession, ground_id: int) -> FutsalGround:
 
 @router.get("", response_model=List[GroundResponse])
 async def list_grounds(
+    request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
     search: Optional[str] = Query(None, description="Search by name or location"),
     location: Optional[str] = Query(None),
@@ -82,11 +83,14 @@ async def list_grounds(
         stmt = stmt.where(FutsalGround.is_verified == True)
     stmt = stmt.offset(skip).limit(limit)
     result = await db.execute(stmt)
-    return result.scalars().all()
+    grounds = result.scalars().all()
+    image_map = await _load_primary_images_map(db, [g.id for g in grounds if g.id is not None], request)
+    return [_ground_payload(g, image_map) for g in grounds]
 
 
 @router.get("/my", response_model=List[GroundResponse])
 async def list_my_grounds(
+    request: Request,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
@@ -95,13 +99,17 @@ async def list_my_grounds(
         select(FutsalGround).where(FutsalGround.owner_id == current_user.id)
         .order_by(col(FutsalGround.created_at).desc())
     )
-    return result.scalars().all()
+    grounds = result.scalars().all()
+    image_map = await _load_primary_images_map(db, [g.id for g in grounds if g.id is not None], request)
+    return [_ground_payload(g, image_map) for g in grounds]
 
 
 @router.get("/{ground_id}", response_model=GroundResponse)
-async def get_ground(ground_id: str, db: Annotated[AsyncSession, Depends(get_db)]):
+async def get_ground(ground_id: str, request: Request, db: Annotated[AsyncSession, Depends(get_db)]):
     gid = decode_id_or_404(ground_id)
-    return await _get_ground_or_404(db, gid)
+    ground = await _get_ground_or_404(db, gid)
+    image_map = await _load_primary_images_map(db, [gid], request)
+    return _ground_payload(ground, image_map)
 
 
 @router.get("/{ground_id}/slots", response_model=List[SlotResponse])
@@ -118,14 +126,17 @@ async def get_slots(
 
 
 @router.get("/{ground_id}/images", response_model=List[GroundImageResponse])
-async def get_ground_images(ground_id: str, db: Annotated[AsyncSession, Depends(get_db)]):
+async def get_ground_images(ground_id: str, request: Request, db: Annotated[AsyncSession, Depends(get_db)]):
     gid = decode_id_or_404(ground_id)
     await _get_ground_or_404(db, gid)
     result = await db.execute(
         select(GroundImage).where(GroundImage.ground_id == gid)
         .order_by(col(GroundImage.is_primary).desc(), col(GroundImage.display_order))
     )
-    return result.scalars().all()
+    images = result.scalars().all()
+    for img in images:
+        img.image_url = _to_absolute_media_url(img.image_url, request) or img.image_url
+    return images
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -236,6 +247,7 @@ async def verify_ground(
 @router.post("/{ground_id}/images", response_model=GroundImageResponse, status_code=status.HTTP_201_CREATED)
 async def upload_image(
     ground_id: str,
+    request: Request,
     file: UploadFile = File(...),
     is_primary: bool = False,
     current_user: User = Depends(_owner),
@@ -252,7 +264,7 @@ async def upload_image(
     with open(dest, "wb") as f:
         shutil.copyfileobj(file.file, f)
 
-    image_url = f"{settings.MEDIA_URL}/grounds/{filename}"
+    image_url = f"{_build_server_base_url(request)}{settings.MEDIA_URL}/grounds/{filename}"
     image = GroundImage(ground_id=gid, image_url=image_url, is_primary=is_primary)
     db.add(image)
     await db.commit()
@@ -532,3 +544,42 @@ async def admin_create_ground(
     await db.commit()
     await db.refresh(ground)
     return ground
+def _build_server_base_url(request: Request) -> str:
+    forwarded_proto = request.headers.get("x-forwarded-proto")
+    forwarded_host = request.headers.get("x-forwarded-host")
+    if forwarded_host:
+        proto = (forwarded_proto or request.url.scheme or "http").split(",")[0].strip()
+        host = forwarded_host.split(",")[0].strip()
+        return f"{proto}://{host}".rstrip("/")
+    return str(request.base_url).rstrip("/")
+
+
+def _to_absolute_media_url(url: Optional[str], request: Request) -> Optional[str]:
+    if not url:
+        return url
+    if url.startswith("http://") or url.startswith("https://"):
+        return url
+    base = _build_server_base_url(request)
+    return f"{base}{url if url.startswith('/') else '/' + url}"
+
+
+async def _load_primary_images_map(db: AsyncSession, ground_ids: list[int], request: Request) -> dict[int, str]:
+    if not ground_ids:
+        return {}
+    result = await db.execute(
+        select(GroundImage)
+        .where(col(GroundImage.ground_id).in_(ground_ids))
+        .order_by(col(GroundImage.ground_id), col(GroundImage.is_primary).desc(), col(GroundImage.display_order))
+    )
+    images = result.scalars().all()
+    image_map: dict[int, str] = {}
+    for img in images:
+        if img.ground_id not in image_map:
+            image_map[img.ground_id] = _to_absolute_media_url(img.image_url, request) or img.image_url
+    return image_map
+
+
+def _ground_payload(ground: FutsalGround, image_map: dict[int, str]) -> dict:
+    payload = ground.model_dump()
+    payload["image_url"] = image_map.get(ground.id or -1)
+    return payload
