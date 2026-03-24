@@ -41,14 +41,14 @@ class TestSettings:
         """Comma-separated env values should be normalized into a list."""
         monkeypatch.setenv(
             "BACKEND_CORS_ORIGINS",
-            "http://144.126.252.228,http://144.126.252.228:3000",
+            "http://example.com,http://localhost:3000",
         )
 
         configured = Settings(_env_file=None)
 
         assert configured.BACKEND_CORS_ORIGINS == [
-            "http://144.126.252.228",
-            "http://144.126.252.228:3000",
+            "http://example.com",
+            "http://localhost:3000",
         ]
 
     def test_allowed_hosts_from_comma_separated_env(self, monkeypatch: pytest.MonkeyPatch):
