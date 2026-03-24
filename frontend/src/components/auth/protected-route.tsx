@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { useAuthStore } from '@/store/auth-store';
 import { apiClient } from '@/lib/api-client';
-import { getDashboardPath } from '@/lib/role-routing';
+import { getDashboardPath, userHasRole } from '@/lib/role-routing';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -35,7 +35,7 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
             const hasAccess =
               u.is_superuser ||
               (requiredRole === 'superuser' && u.is_superuser) ||
-              (requiredRole !== 'superuser' && u.roles?.includes(requiredRole));
+              (requiredRole !== 'superuser' && userHasRole(u, requiredRole));
             if (!hasAccess) {
               router.push(getDashboardPath(u));
               return;
@@ -79,7 +79,7 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
           const hasAccess =
             u.is_superuser ||
             (requiredRole === 'superuser' && u.is_superuser) ||
-            (requiredRole !== 'superuser' && u.roles?.includes(requiredRole));
+            (requiredRole !== 'superuser' && userHasRole(u, requiredRole));
           if (!hasAccess) {
             router.push(getDashboardPath(u));
             return;
@@ -115,4 +115,3 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
 
   return <>{children}</>;
 }
-
