@@ -70,7 +70,7 @@ class Settings(BaseSettings):
             return f"redis://{data.get('REDIS_HOST')}:{data.get('REDIS_PORT')}/{data.get('REDIS_DB')}"
 
     # CORS settings
-    BACKEND_CORS_ORIGINS: List[str] = ["*"]
+    BACKEND_CORS_ORIGINS: Union[str, List[str]] = ["*"]
 
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")
     def assemble_cors_origins(cls, v: Union[str, List[str]]):
@@ -133,7 +133,7 @@ class Settings(BaseSettings):
     # Hosts allowed by TrustedHostMiddleware.  Should be a list of hostnames
     # or IPs that the server will accept in the Host header.  Wildcard (*) is
     # convenient in development but avoid it in production for security.
-    ALLOWED_HOSTS: List[str] = ["*"]
+    ALLOWED_HOSTS: Union[str, List[str]] = ["*"]
 
 
     # Media / file uploads
