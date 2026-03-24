@@ -1,5 +1,5 @@
 import pytest
-from src.apps.core.config import settings
+from src.apps.core.config import Settings, settings
 
 
 class TestSettings:
@@ -36,6 +36,28 @@ class TestSettings:
         """Test CORS origins are configured."""
         assert isinstance(settings.BACKEND_CORS_ORIGINS, list)
         assert len(settings.BACKEND_CORS_ORIGINS) > 0
+
+    def test_cors_origins_from_comma_separated_env(self, monkeypatch: pytest.MonkeyPatch):
+        """Comma-separated env values should be normalized into a list."""
+        monkeypatch.setenv(
+            "BACKEND_CORS_ORIGINS",
+            "http://example.com,http://localhost:3000",
+        )
+
+        configured = Settings(_env_file=None)
+
+        assert configured.BACKEND_CORS_ORIGINS == [
+            "http://example.com",
+            "http://localhost:3000",
+        ]
+
+    def test_allowed_hosts_from_comma_separated_env(self, monkeypatch: pytest.MonkeyPatch):
+        """Comma-separated host env values should be normalized into a list."""
+        monkeypatch.setenv("ALLOWED_HOSTS", "144.126.252.228,localhost")
+
+        configured = Settings(_env_file=None)
+
+        assert configured.ALLOWED_HOSTS == ["144.126.252.228", "localhost"]
     
     def test_database_url(self):
         """Test database URL is configured."""
