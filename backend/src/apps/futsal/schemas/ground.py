@@ -78,6 +78,7 @@ class GroundResponse(BaseModel):
     average_rating: float = 0.0
     rating_count: int = 0
     amenities: Optional[dict] = None
+    image_url: Optional[str] = None
 
     model_config = {"from_attributes": True}
 

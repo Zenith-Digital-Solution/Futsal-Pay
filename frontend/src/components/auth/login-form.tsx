@@ -37,6 +37,8 @@ export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get('redirect');
+  const safeRedirectTo =
+    redirectTo && redirectTo.startsWith('/') && !redirectTo.startsWith('//') ? redirectTo : null;
   const { loginAsync, isLoading, loginError } = useAuth();
   const { track } = useAnalytics();
   const [checking, setChecking] = useState(true);
@@ -56,7 +58,7 @@ export function LoginForm() {
           const { data: user } = await apiClient.get('/users/me/', {
             headers: { Authorization: `Bearer ${accessToken}` },
           });
-          if (!cancelled) router.replace(redirectTo ?? (await getPostLoginPath(user)));
+          if (!cancelled) router.replace(safeRedirectTo ?? (await getPostLoginPath(user)));
           return;
         } catch {
           // access token invalid / expired – fall through to refresh
@@ -77,7 +79,7 @@ export function LoginForm() {
           apiClient.defaults.headers.common['Authorization'] = `Bearer ${access}`;
 
           const { data: user } = await apiClient.get('/users/me/');
-          if (!cancelled) router.replace(redirectTo ?? (await getPostLoginPath(user)));
+          if (!cancelled) router.replace(safeRedirectTo ?? (await getPostLoginPath(user)));
           return;
         } catch {
           // refresh token invalid – clear storage and show login form
@@ -91,7 +93,7 @@ export function LoginForm() {
 
     checkTokens();
     return () => { cancelled = true; };
-  }, [router]);
+  }, [router, safeRedirectTo]);
 
   const {
     register,
@@ -109,8 +111,8 @@ export function LoginForm() {
         router.push(`/otp-verify?temp_token=${otpResult.temp_token}`);
       } else {
         track('user_signed_in', { method: 'email' });
-        if (redirectTo) {
-          router.push(redirectTo);
+        if (safeRedirectTo) {
+          router.push(safeRedirectTo);
         } else {
           try {
             const userRes = await apiClient.get('/users/me');
@@ -144,7 +146,7 @@ export function LoginForm() {
     <Card className="w-full max-w-md">
       <CardHeader className="text-center">
         <CardTitle>Welcome back</CardTitle>
-        {redirectTo ? (
+        {safeRedirectTo ? (
           <CardDescription>Sign in to continue to your booking</CardDescription>
         ) : (
           <CardDescription>Sign in to your account to continue</CardDescription>
@@ -197,5 +199,3 @@ export function LoginForm() {
     </Card>
   );
 }
-
-

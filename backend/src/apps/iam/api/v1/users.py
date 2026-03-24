@@ -3,7 +3,7 @@ User management endpoints with caching and pagination
 """
 import os
 import uuid
-from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import select, func, or_, col
@@ -17,6 +17,16 @@ from src.apps.core.cache import RedisCache
 from src.apps.core.config import settings
 
 router = APIRouter(prefix="/users")
+
+
+def _build_server_base_url(request: Request) -> str:
+    forwarded_proto = request.headers.get("x-forwarded-proto")
+    forwarded_host = request.headers.get("x-forwarded-host")
+    if forwarded_host:
+        proto = (forwarded_proto or request.url.scheme or "http").split(",")[0].strip()
+        host = forwarded_host.split(",")[0].strip()
+        return f"{proto}://{host}".rstrip("/")
+    return str(request.base_url).rstrip("/")
 
 
 @router.get("/", response_model=PaginatedResponse[UserResponse])
@@ -135,6 +145,7 @@ async def get_current_user_profile(
 
 @router.post("/me/avatar", response_model=UserResponse)
 async def upload_avatar(
+    request: Request,
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -173,7 +184,7 @@ async def upload_avatar(
     with open(file_path, "wb") as f:
         f.write(contents)
 
-    image_url = f"{settings.SERVER_HOST}{settings.MEDIA_URL}/avatars/{filename}"
+    image_url = f"{_build_server_base_url(request)}{settings.MEDIA_URL}/avatars/{filename}"
 
     if current_user.profile:
         current_user.profile.image_url = image_url
