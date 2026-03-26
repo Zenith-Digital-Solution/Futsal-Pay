@@ -125,6 +125,13 @@ class Settings(BaseSettings):
     EMAIL_HOST_USER: str = "user@example.com"
     EMAIL_HOST_PASSWORD: SecretStr = SecretStr("password")
     EMAIL_FROM_ADDRESS: str = "noreply@example.com"
+    EMAIL_FROM_NAME: str = "Futsal Pay"
+
+    # Mailgun (primary outbound provider)
+    MAILGUN_ENABLED: bool = True
+    MAILGUN_API_KEY: SecretStr = SecretStr("")
+    MAILGUN_DOMAIN: str = ""
+    MAILGUN_BASE_URL: str = "https://api.mailgun.net/v3"
 
     # Frontend
     FRONTEND_URL: str = "http://localhost:3000"
