@@ -3,10 +3,9 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from celery import shared_task
-from fastapi_mail import ConnectionConfig, FastMail, MessageSchema, MessageType, NameEmail
-
 from src.apps.core.celery_app import celery_app  # noqa: F401 — registers the configured app so shared_task binds to it
 from src.apps.core.config import settings
+from src.apps.core.email_strategies import MailgunEmailStrategy, SMTPEmailStrategy
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +23,7 @@ def send_email_task(
     template_dir: str | None = None,
 ) -> bool:
     """
-    Core SMTP email sender Celery task.
+    Core email sender Celery task with provider strategies.
 
     *template_dir* lets calling modules supply their own Jinja2 template
     folder (defaults to the IAM templates directory).
@@ -60,32 +59,34 @@ def send_email_task(
             )
         return True
 
-    try:
-        conf = ConnectionConfig(
-            MAIL_USERNAME=settings.EMAIL_HOST_USER,
-            MAIL_PASSWORD=settings.EMAIL_HOST_PASSWORD,
-            MAIL_FROM=settings.EMAIL_FROM_ADDRESS,
-            MAIL_PORT=int(settings.EMAIL_PORT),
-            MAIL_SERVER=settings.EMAIL_HOST,
-            MAIL_STARTTLS=True,
-            MAIL_SSL_TLS=False,
-            USE_CREDENTIALS=True,
-            VALIDATE_CERTS=True,
-            TEMPLATE_FOLDER=resolved_dir,
-        )
-        recipient_objects = [NameEmail(name=r.get("name", ""), email=r["email"]) for r in recipients]
-        message = MessageSchema(
+    strategies = [MailgunEmailStrategy(), SMTPEmailStrategy()]
+
+    for strategy in strategies:
+        if not strategy.is_available():
+            logger.debug("Email strategy unavailable: %s", strategy.provider_name)
+            continue
+
+        sent = strategy.send(
             subject=subject,
-            recipients=recipient_objects,
-            template_body=context,
-            subtype=MessageType.html,
+            recipients=recipients,
+            template_name=template_name,
+            context=context,
+            template_dir=resolved_dir,
         )
-        import asyncio
-        fm = FastMail(conf)
-        asyncio.run(fm.send_message(message, template_name=f"emails/{template_name}.html"))
-        logger.info("Email sent: Subject=%s Recipients=%s", subject, [r["email"] for r in recipients])
-        return True
-    except Exception as exc:
-        logger.error("Failed to send email: %s", exc)
-        return False
+        if sent:
+            logger.info(
+                "Email sent via %s: Subject=%s Recipients=%s",
+                strategy.provider_name,
+                subject,
+                [r["email"] for r in recipients],
+            )
+            return True
+
+        logger.warning(
+            "Email strategy failed: %s. Trying next strategy (if any).",
+            strategy.provider_name,
+        )
+
+    logger.error("All email strategies failed: Subject=%s Recipients=%s", subject, [r["email"] for r in recipients])
+    return False
 
