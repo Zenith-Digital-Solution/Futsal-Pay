@@ -371,3 +371,4 @@ MigrationBackup/
 FodyWeavers.xsd
 publish/.env
 backend/mydatabase.db
+*/.hypothesis/

@@ -7,15 +7,15 @@ from src.apps.core.config import settings
 if not settings.DATABASE_URL:
     raise ValueError("DATABASE_URL is not set in the configuration")
 
-_is_sqlite = settings.DATABASE_URL.startswith("sqlite")
+_is_test = settings.TESTING
 
-if _is_sqlite:
+if _is_test:
+    # In test mode use NullPool so each test gets a fresh connection
     engine = create_async_engine(
         url=settings.DATABASE_URL,
-        echo=settings.DEBUG,
+        echo=False,
         future=True,
         poolclass=NullPool,
-        connect_args={"check_same_thread": False, "timeout": 30},
     )
 else:
     engine = create_async_engine(
@@ -26,8 +26,8 @@ else:
         pool_size=10,
         max_overflow=20,
         pool_timeout=30,
-        pool_recycle=1800,   # recycle connections after 30 min to avoid stale handles
-        pool_pre_ping=True,  # verify connection health before use — fixes intermittent errors
+        pool_recycle=1800,
+        pool_pre_ping=True,
     )
 
 async_session_factory = async_sessionmaker(engine, expire_on_commit=False)

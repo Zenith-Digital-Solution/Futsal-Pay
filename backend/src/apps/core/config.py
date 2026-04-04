@@ -93,22 +93,14 @@ class Settings(BaseSettings):
         if isinstance(v, str):
             return v
         data = info.data
-        debug: bool = data.get("DEBUG", True)
-        if debug:
-            return f"sqlite+aiosqlite:///./{data.get('POSTGRES_DB')}.db"
-        else:
-            return f"postgresql+asyncpg://{data.get('POSTGRES_USER')}:{data.get('POSTGRES_PASSWORD')}@{data.get('POSTGRES_SERVER')}/{data.get('POSTGRES_DB')}"
+        return f"postgresql+asyncpg://{data.get('POSTGRES_USER')}:{data.get('POSTGRES_PASSWORD')}@{data.get('POSTGRES_SERVER')}/{data.get('POSTGRES_DB')}"
         
     @field_validator("SYNC_DATABASE_URL", mode="before")
     def assemble_sync_db_connection(cls, v: str | None, info: ValidationInfo) -> str:
         if isinstance(v, str):
             return v
         data = info.data
-        debug: bool = data.get("DEBUG", True)
-        if debug:
-            return f"sqlite:///./{data.get('POSTGRES_DB')}.db"
-        else:
-            return f"postgresql://{data.get('POSTGRES_USER')}:{data.get('POSTGRES_PASSWORD')}@{data.get('POSTGRES_SERVER')}/{data.get('POSTGRES_DB')}"
+        return f"postgresql://{data.get('POSTGRES_USER')}:{data.get('POSTGRES_PASSWORD')}@{data.get('POSTGRES_SERVER')}/{data.get('POSTGRES_DB')}"
         
     @field_validator("ALLOWED_HOSTS", mode="before")
     def assemble_allowed_hosts(cls, v: Union[str, List[str]]):

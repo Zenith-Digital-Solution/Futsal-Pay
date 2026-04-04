@@ -17,7 +17,6 @@ from src.apps.core.analytics import analytics
 
 LOCK_TTL_MINUTES = 10
 PLATFORM_FEE_PCT = 5.0
-POINTS_PER_100_NPR = 1
 CANCELLATION_GRACE_HOURS = 1
 
 
@@ -123,7 +122,6 @@ def _compute_price(
     booking_date: date,
     start_time: time,
     end_time: time,
-    loyalty_discount: float = 0.0,
 ) -> float:
     """Compute booking price with weekend + peak-hour pricing."""
     from src.apps.futsal.services.slot_service import _is_weekend, _is_peak_hour
@@ -140,7 +138,7 @@ def _compute_price(
     if _is_peak_hour(start_time, ground.peak_hours_start, ground.peak_hours_end):
         base *= ground.peak_price_multiplier
 
-    return max(0.0, round(base * duration_hours - loyalty_discount, 2))
+    return max(0.0, round(base * duration_hours, 2))
 
 
 async def create_booking(
@@ -148,7 +146,6 @@ async def create_booking(
     ground: FutsalGround,
     user_id: int,
     data: BookingCreate,
-    loyalty_discount: float = 0.0,
 ) -> Booking:
     """
     Atomically create a booking.
@@ -172,7 +169,7 @@ async def create_booking(
     await _validate_booking_constraints(db, ground, data.booking_date, data.start_time, data.end_time)
     await _check_slot_available(db, ground.id, data.booking_date, data.start_time, data.end_time)
 
-    total = _compute_price(ground, data.booking_date, data.start_time, data.end_time, loyalty_discount)
+    total = _compute_price(ground, data.booking_date, data.start_time, data.end_time)
 
     booking = Booking(
         user_id=user_id,
@@ -283,7 +280,7 @@ async def cancel_booking(
 
     if not is_owner:
         # Check 2-hour cancellation grace window
-        booking_datetime = datetime.combine(booking.booking_date, booking.start_time)
+        booking_datetime = datetime.combine(booking.booking_date, booking.start_time, tzinfo=timezone.utc)
         if datetime.now(timezone.utc) > booking_datetime - timedelta(hours=CANCELLATION_GRACE_HOURS):
             raise BookingNotEligibleForCancelError(
                 "Cancellations must be made at least 1 hour before the match start time."

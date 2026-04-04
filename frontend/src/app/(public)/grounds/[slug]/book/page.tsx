@@ -37,7 +37,6 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
 
   const [teamName, setTeamName] = useState('');
   const [notes, setNotes] = useState('');
-  const [useLoyalty, setUseLoyalty] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('khalti');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -78,7 +77,6 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
         end_time: slotEnd,
         team_name: teamName || undefined,
         notes: notes || undefined,
-        ...(useLoyalty && { loyalty_points_to_redeem: 1 }),
       });
 
       track('payment_initiated', {
@@ -207,15 +205,6 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                 className="mt-1.5 w-full border border-gray-200 rounded-md px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
               />
             </div>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={useLoyalty}
-                onChange={(e) => setUseLoyalty(e.target.checked)}
-                className="accent-green-600 h-4 w-4"
-              />
-              <span className="text-sm text-gray-700">Use loyalty points</span>
-            </label>
           </CardContent>
         </Card>
 

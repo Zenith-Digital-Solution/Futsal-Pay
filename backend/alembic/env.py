@@ -39,14 +39,13 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
         user_module_prefix='sqlmodel.',
-        render_as_batch=True
     )
     with context.begin_transaction():
         context.run_migrations()
 
 def run_migrations_online() -> None:
     connectable = create_engine(
-        settings.SYNC_DATABASE_URL or "sqlite:///./test.db",
+        settings.SYNC_DATABASE_URL or "postgresql://postgres:postgres@localhost/mydatabase",
         poolclass=pool.NullPool,
     )
     with connectable.connect() as connection:
@@ -54,7 +53,6 @@ def run_migrations_online() -> None:
             connection=connection,
             target_metadata=target_metadata,
             user_module_prefix='sqlmodel.',
-            render_as_batch=True,     
         )
         with context.begin_transaction():
             context.run_migrations()

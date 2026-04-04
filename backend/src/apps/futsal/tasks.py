@@ -2,8 +2,7 @@
 Celery tasks for the futsal app.
 - release_expired_booking_locks: frees locks past TTL
 - update_completed_bookings: marks past confirmed bookings as COMPLETED
-- send_booking_reminders: 24h and 2h reminders
-- expire_loyalty_points: monthly cleanup
+- send_booking_reminders: 2-hour pre-play reminders
 """
 import asyncio
 from datetime import datetime, date, timedelta, timezone

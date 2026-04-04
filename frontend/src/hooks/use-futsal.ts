@@ -81,12 +81,6 @@ export interface PayoutRecord {
   created_at: string;
 }
 
-export interface LoyaltyAccount {
-  points_balance: number;
-  total_earned: number;
-  total_redeemed: number;
-}
-
 // ── Ground Hooks ───────────────────────────────────────────────────────────
 
 export function useGrounds(params?: {
@@ -189,7 +183,6 @@ export function useCreateBooking() {
       end_time: string;
       team_name?: string;
       notes?: string;
-      loyalty_points_to_redeem?: number;
     }) => {
       const res = await apiClient.post<Booking>('/futsal/bookings', data);
       return res.data;
@@ -232,28 +225,6 @@ export function useReplyToReview() {
       return res.data;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['reviews'] }),
-  });
-}
-
-// ── Loyalty Hooks ──────────────────────────────────────────────────────────
-
-export function useLoyalty() {
-  return useQuery({
-    queryKey: ['loyalty'],
-    queryFn: async () => {
-      const { data } = await apiClient.get<LoyaltyAccount>('/futsal/loyalty');
-      return data;
-    },
-  });
-}
-
-export function useLoyaltyHistory() {
-  return useQuery({
-    queryKey: ['loyalty-history'],
-    queryFn: async () => {
-      const { data } = await apiClient.get('/futsal/loyalty/history');
-      return data;
-    },
   });
 }
 

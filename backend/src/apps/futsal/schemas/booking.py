@@ -17,7 +17,6 @@ class BookingCreate(BaseModel):
     is_recurring: bool = False
     recurring_type: Optional[str] = None
     recurring_end_date: Optional[date] = None
-    loyalty_points_to_redeem: int = 0
 
 
 # ── Response schemas ─────────────────────────────────────────────────────────

@@ -21,7 +21,6 @@ from src.apps.futsal.services.booking_service import (
     SlotAlreadyBookedError, SlotLockedError, GroundClosedError, OutsideOperatingHoursError,
     BookingNotEligibleForCancelError,
 )
-from src.apps.futsal.services.loyalty_service import redeem_points, earn_points
 import qrcode
 
 router = APIRouter(tags=["Bookings"])
@@ -50,16 +49,8 @@ async def create_new_booking(
     if not ground or not ground.is_active:
         raise HTTPException(status_code=404, detail="Ground not found or inactive.")
 
-    # Handle loyalty point redemption
-    loyalty_discount = 0.0
-    if data.loyalty_points_to_redeem > 0:
-        try:
-            loyalty_discount = await redeem_points(db, current_user.id, data.loyalty_points_to_redeem)
-        except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e))
-
     try:
-        booking = await create_booking(db, ground, current_user.id, data, loyalty_discount)
+        booking = await create_booking(db, ground, current_user.id, data)
     except SlotAlreadyBookedError as e:
         raise HTTPException(status_code=409, detail=str(e))
     except SlotLockedError as e:
@@ -217,11 +208,6 @@ async def checkin_booking(
 
     booking.qr_used = True
     booking = await complete_booking(db, booking)
-
-    # Earn loyalty points on check-in
-    await earn_points(db, booking.user_id, booking.id, booking.total_amount)
-    await db.commit()
-
     return booking
 
 

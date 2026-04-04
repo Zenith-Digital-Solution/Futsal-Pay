@@ -6,7 +6,6 @@ from .review import Review
 from .ground_closure import GroundClosure
 from .favourite import FavouriteGround
 from .waitlist import WaitlistEntry
-from .loyalty import LoyaltyAccount, LoyaltyTransaction, LoyaltyTransactionType
 
 __all__ = [
     "FutsalGround", "GroundType",
@@ -17,5 +16,4 @@ __all__ = [
     "GroundClosure",
     "FavouriteGround",
     "WaitlistEntry",
-    "LoyaltyAccount", "LoyaltyTransaction", "LoyaltyTransactionType",
 ]

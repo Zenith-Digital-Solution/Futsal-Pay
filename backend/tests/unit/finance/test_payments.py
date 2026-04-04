@@ -35,7 +35,8 @@ def _esewa_callback_data(transaction_uuid: str, total_amount: int = 100) -> str:
         "product_code": product_code,
         "signed_field_names": signed_field_names,
     }
-    message = ",".join(fields_values[f] for f in signed_field_names.split(","))
+    # Service expects "field=value,field=value,..." format
+    message = ",".join(f"{f}={fields_values[f]}" for f in signed_field_names.split(","))
     sig = _esewa_sig(message)
     fields_values["signature"] = sig
     return base64.b64encode(json.dumps(fields_values).encode()).decode()
@@ -247,8 +248,8 @@ class TestEsewaPayment:
         assert form_fields["total_amount"] == 100
         assert "signature" in form_fields
 
-        # Verify the signature is correct
-        message = f"{form_fields['total_amount']},{form_fields['transaction_uuid']},{form_fields['product_code']}"
+        # Verify the signature is correct — service format: "total_amount=X,transaction_uuid=Y,product_code=Z"
+        message = f"total_amount={form_fields['total_amount']},transaction_uuid={form_fields['transaction_uuid']},product_code={form_fields['product_code']}"
         expected_sig = _esewa_sig(message)
         assert form_fields["signature"] == expected_sig
 

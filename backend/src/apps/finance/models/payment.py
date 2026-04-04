@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
 from sqlmodel import Field, SQLModel
-from sqlalchemy import DateTime
+from sqlalchemy import DateTime, CheckConstraint
 
 
 class PaymentProvider(str, Enum):
@@ -90,6 +90,9 @@ class PaymentTransactionBase(SQLModel):
 
 class PaymentTransaction(PaymentTransactionBase, table=True):
     __tablename__ = "payment_transactions" # type: ignore
+    __table_args__ = (
+        CheckConstraint("amount > 0", name="ck_payment_amount_positive"),
+    )
 
     id: Optional[int] = Field(default=None, primary_key=True)
     created_at: datetime = Field(sa_type=DateTime(timezone=True), default_factory=lambda: datetime.now(timezone.utc))

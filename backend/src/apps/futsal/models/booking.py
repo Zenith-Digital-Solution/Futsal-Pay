@@ -2,7 +2,7 @@ from datetime import date, datetime, time, timezone
 from enum import Enum
 from typing import Optional, TYPE_CHECKING
 from sqlmodel import Field, SQLModel, Relationship
-from sqlalchemy import DateTime
+from sqlalchemy import DateTime, CheckConstraint, Index
 import uuid
 
 if TYPE_CHECKING:
@@ -42,6 +42,14 @@ class BookingBase(SQLModel):
 
 class Booking(BookingBase, table=True):
     __tablename__ = "bookings"  # type: ignore
+    __table_args__ = (
+        CheckConstraint("total_amount >= 0", name="ck_booking_total_amount_nonneg"),
+        CheckConstraint("paid_amount >= 0", name="ck_booking_paid_amount_nonneg"),
+        CheckConstraint("paid_amount <= total_amount", name="ck_booking_paid_lte_total"),
+        CheckConstraint("end_time > start_time", name="ck_booking_end_after_start"),
+        Index("ix_booking_ground_date_status", "ground_id", "booking_date", "status"),
+        Index("ix_booking_user_date", "user_id", "booking_date"),
+    )
 
     id: Optional[int] = Field(default=None, primary_key=True)
     status: BookingStatus = Field(default=BookingStatus.PENDING)

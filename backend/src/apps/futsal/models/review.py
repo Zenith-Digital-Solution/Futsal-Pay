@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import Optional, TYPE_CHECKING
 from sqlmodel import Field, SQLModel, Relationship, UniqueConstraint
-from sqlalchemy import DateTime
+from sqlalchemy import DateTime, CheckConstraint
 
 if TYPE_CHECKING:
     from src.apps.iam.models.user import User
@@ -23,12 +23,13 @@ class Review(ReviewBase, table=True):
     __table_args__ = (
         UniqueConstraint("booking_id", name="uq_review_booking_id"),
         UniqueConstraint("user_id", "ground_id", "booking_id", name="uq_review_booking"),
+        CheckConstraint("rating >= 1 AND rating <= 5", name="ck_review_rating_range"),
     )
 
     id: Optional[int] = Field(default=None, primary_key=True)
     owner_reply: Optional[str] = Field(default=None, max_length=1000)
     owner_replied_at: Optional[datetime] = Field(sa_type=DateTime(timezone=True), default=None)
-    is_verified: bool = Field(default=True)  # True when booking status was COMPLETED
+    is_verified: bool = Field(default=True)
     created_at: datetime = Field(sa_type=DateTime(timezone=True), default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(sa_type=DateTime(timezone=True), default_factory=lambda: datetime.now(timezone.utc))
 

@@ -2,7 +2,7 @@ from datetime import datetime, time, timezone
 from enum import Enum
 from typing import Optional, List, TYPE_CHECKING
 from sqlmodel import Field, SQLModel, Relationship, Column
-from sqlalchemy import DateTime, JSON
+from sqlalchemy import DateTime, JSON, CheckConstraint, Index
 
 if TYPE_CHECKING:
     from src.apps.iam.models.user import User
@@ -45,6 +45,17 @@ class FutsalGroundBase(SQLModel):
 
 class FutsalGround(FutsalGroundBase, table=True):
     __tablename__ = "futsal_grounds"  # type: ignore
+    __table_args__ = (
+        CheckConstraint("price_per_hour > 0", name="ck_ground_price_positive"),
+        CheckConstraint("weekend_price_per_hour IS NULL OR weekend_price_per_hour > 0", name="ck_ground_weekend_price_positive"),
+        CheckConstraint("peak_price_multiplier >= 1.0 AND peak_price_multiplier <= 3.0", name="ck_ground_peak_multiplier_range"),
+        CheckConstraint("average_rating >= 0.0 AND average_rating <= 5.0", name="ck_ground_rating_range"),
+        CheckConstraint("rating_count >= 0", name="ck_ground_rating_count_nonneg"),
+        CheckConstraint("slot_duration_minutes >= 30 AND slot_duration_minutes <= 180", name="ck_ground_slot_duration_range"),
+        CheckConstraint("latitude IS NULL OR (latitude >= -90 AND latitude <= 90)", name="ck_ground_lat_range"),
+        CheckConstraint("longitude IS NULL OR (longitude >= -180 AND longitude <= 180)", name="ck_ground_lon_range"),
+        Index("ix_ground_owner_active", "owner_id", "is_active"),
+    )
 
     id: Optional[int] = Field(default=None, primary_key=True)
     amenities: Optional[dict] = Field(default=None, sa_column=Column(JSON))

@@ -9,7 +9,6 @@ from .ground import (
 )
 from .booking import BookingCreate, BookingResponse, PendingReviewBooking
 from .review import ReviewCreate, DirectReviewCreate, ReviewResponse, OwnerReplyCreate
-from .loyalty import LoyaltyAccountResponse, LoyaltyTransactionResponse
 
 __all__ = [
     # Ground
@@ -29,7 +28,4 @@ __all__ = [
     "DirectReviewCreate",
     "ReviewResponse",
     "OwnerReplyCreate",
-    # Loyalty
-    "LoyaltyAccountResponse",
-    "LoyaltyTransactionResponse",
 ]
