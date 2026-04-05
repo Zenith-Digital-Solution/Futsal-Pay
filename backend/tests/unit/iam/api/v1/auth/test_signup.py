@@ -81,6 +81,28 @@ class TestSignup:
         )
         
         assert response.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_signup_duplicate_email(self, client: AsyncClient, db_session: AsyncSession):
+        """Test signup fails with duplicate email."""
+        existing_user = UserFactory.build(username="usera", email="existing@example.com")
+        db_session.add(existing_user)
+        await db_session.commit()
+
+        user_data = {
+            "username": "userb",
+            "email": "existing@example.com",
+            "password": "TestPass123",
+            "confirm_password": "TestPass123"
+        }
+
+        response = await client.post(
+            "/api/v1/auth/signup/?set_cookie=false",
+            json=user_data
+        )
+
+        assert response.status_code == 400
+        assert "Email already registered" in response.json()["detail"]
     
     @pytest.mark.asyncio
     async def test_signup_with_cookie(self, client: AsyncClient, db_session: AsyncSession):
@@ -100,3 +122,33 @@ class TestSignup:
         assert response.status_code == 200
         assert response.json()["message"] == "Account created successfully"
         assert "access_token" in response.cookies
+
+    @pytest.mark.asyncio
+    async def test_signup_unexpected_error_returns_500_and_logs(
+        self,
+        client: AsyncClient,
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
+    ):
+        """Unexpected signup errors should be logged with context and returned as 500."""
+        async def explode(*args, **kwargs):
+            raise RuntimeError("signup boom")
+
+        monkeypatch.setattr(
+            "src.apps.iam.api.v1.auth.signup.revoke_tokens_for_ip",
+            explode,
+        )
+
+        response = await client.post(
+            "/api/v1/auth/signup/?set_cookie=false",
+            json={
+                "username": "boomsignup",
+                "email": "boomsignup@example.com",
+                "password": "TestPass123",
+                "confirm_password": "TestPass123",
+            },
+        )
+
+        assert response.status_code == 500
+        assert response.json()["detail"] == "An error occurred during signup"
+        assert "Signup unexpected error" in caplog.text

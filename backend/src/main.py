@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 import logging
 import os
 from fastapi import FastAPI
+from fastapi import HTTPException
 from fastapi.responses import RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
@@ -12,7 +13,11 @@ from slowapi.errors import RateLimitExceeded
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from src.apps.core.config import settings, load_settings_from_db
 from src.apps.core.api import router as core_config_router
-from src.apps.core.handler import rate_limit_exceeded_handler, global_exception_handler
+from src.apps.core.handler import (
+    rate_limit_exceeded_handler,
+    global_exception_handler,
+    http_exception_handler,
+)
 from src.apps.core.middleware import SecurityHeadersMiddleware
 from src.apps.iam.api import api_router
 from src.apps.finance.api import finance_router
@@ -115,6 +120,7 @@ app = FastAPI(
 # Add rate limiter to app state and register exception handlers
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
+app.add_exception_handler(HTTPException, http_exception_handler)
 # Catch-all: return 500 JSON instead of crashing the worker
 app.add_exception_handler(Exception, global_exception_handler)
 

@@ -293,3 +293,44 @@ class TestLogin:
             select(User).where(User.username == "stillworks")
         )
         assert result.scalars().first() is not None
+
+    @pytest.mark.asyncio
+    async def test_login_long_server_error_is_truncated_for_audit_log(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        """Very long server errors should not overflow login_attempt.failure_reason."""
+        user = UserFactory.build(
+            username="longerroruser",
+            email="longerror@example.com",
+            hashed_password=security.get_password_hash("TestPass123"),
+            is_active=True,
+        )
+        db_session.add(user)
+        await db_session.commit()
+        await db_session.refresh(user)
+        user_id = user.id
+
+        async def explode(*args, **kwargs):
+            raise RuntimeError("x" * 500)
+
+        monkeypatch.setattr(
+            "src.apps.iam.api.v1.auth.login.revoke_tokens_for_ip",
+            explode,
+        )
+
+        response = await client.post(
+            "/api/v1/auth/login/?set_cookie=false",
+            json={"username": "longerroruser", "password": "TestPass123"},
+        )
+
+        assert response.status_code == 500
+
+        result = await db_session.execute(
+            select(LoginAttempt).where(LoginAttempt.user_id == user_id)
+        )
+        attempts = result.scalars().all()
+        server_error_attempt = next(a for a in attempts if a.failure_reason.startswith("Server error:"))
+        assert len(server_error_attempt.failure_reason) <= 255

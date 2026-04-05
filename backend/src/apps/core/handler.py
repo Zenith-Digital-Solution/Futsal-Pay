@@ -1,10 +1,8 @@
-
 import logging
-import traceback
+from fastapi import Request, HTTPException
 from fastapi.responses import JSONResponse
 from slowapi.errors import RateLimitExceeded
 from slowapi.extension import _rate_limit_exceeded_handler
-from fastapi import Request
 
 logger = logging.getLogger(__name__)
 
@@ -19,13 +17,31 @@ def rate_limit_exceeded_handler(request: Request, exc: Exception):
 
 
 async def global_exception_handler(request: Request, exc: Exception):
-    logger.error(
-        "Unhandled exception on %s %s\n%s",
+    logger.exception(
+        "Unhandled exception on %s %s from %s: %s",
         request.method,
         request.url,
-        traceback.format_exc(),
+        request.client.host if request.client else "unknown",
+        repr(exc),
     )
     return JSONResponse(
         status_code=500,
         content={"detail": "An unexpected error occurred. Please try again later."},
+    )
+
+
+async def http_exception_handler(request: Request, exc: HTTPException):
+    if exc.status_code >= 500:
+        logger.error(
+            "HTTPException on %s %s from %s: status=%s detail=%r",
+            request.method,
+            request.url,
+            request.client.host if request.client else "unknown",
+            exc.status_code,
+            exc.detail,
+        )
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+        headers=exc.headers,
     )

@@ -25,6 +25,13 @@ from src.apps.core.analytics import analytics
 router = APIRouter()
 limiter = Limiter(key_func=get_remote_address)
 logger = logging.getLogger(__name__)
+_LOGIN_ATTEMPT_REASON_MAX = 255
+
+
+def _normalize_failure_reason(reason: str) -> str:
+    if len(reason) <= _LOGIN_ATTEMPT_REASON_MAX:
+        return reason
+    return reason[: _LOGIN_ATTEMPT_REASON_MAX - 3] + "..."
 
 
 async def _record_login_attempt(
@@ -44,7 +51,7 @@ async def _record_login_attempt(
                 ip_address=ip_address,
                 user_agent=user_agent,
                 success=success,
-                failure_reason=failure_reason,
+                failure_reason=_normalize_failure_reason(failure_reason),
             )
         )
         await db.commit()

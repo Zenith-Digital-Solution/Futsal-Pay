@@ -1,7 +1,9 @@
 from datetime import timedelta, datetime, timezone
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlmodel import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from jose import jwt
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -20,6 +22,7 @@ from src.apps.core.analytics import analytics
 
 router = APIRouter()
 limiter = Limiter(key_func=get_remote_address)
+logger = logging.getLogger(__name__)
 
 
 @router.post("/signup/")
@@ -35,6 +38,8 @@ async def signup(
     Create a new user account
     """
     ip_address = get_client_ip(request)
+    user_agent = request.headers.get("user-agent", "unknown")
+    new_user_id: int | None = None
     
     try:
         result = await db.execute(
@@ -46,6 +51,17 @@ async def signup(
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Username already registered"
+            )
+
+        email_result = await db.execute(
+            select(User).where(User.email == login_data.email)
+        )
+        existing_email_user = email_result.scalars().first()
+
+        if existing_email_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already registered"
             )
 
         hashed_password = security.get_password_hash(login_data.password)
@@ -65,6 +81,7 @@ async def signup(
         db.add(new_user)
         db.add(user_profile)
         await db.commit()
+        new_user_id = new_user.id
 
         # Auto-assign the "user" global role on every new signup
         from src.apps.iam.models import Role as RoleModel, UserRole
@@ -104,9 +121,7 @@ async def signup(
             await EmailService.send_welcome_email(new_user)
         except Exception:
             pass
-        
-        user_agent = request.headers.get("user-agent", "unknown")
-        
+
         access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
         access_token = security.create_access_token(
             new_user.id, expires_delta=access_token_expires
@@ -162,8 +177,43 @@ async def signup(
         )
     except HTTPException:
         raise
-    except Exception:
+    except IntegrityError as exc:
         await db.rollback()
+        logger.exception(
+            "Signup integrity error for username=%r email=%r from ip=%s: %s",
+            login_data.username,
+            login_data.email,
+            ip_address,
+            repr(exc),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username or email already registered"
+        )
+    except SQLAlchemyError as exc:
+        await db.rollback()
+        logger.exception(
+            "Signup database error for username=%r email=%r user_id=%r from ip=%s: %s",
+            login_data.username,
+            login_data.email,
+            new_user_id,
+            ip_address,
+            repr(exc),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred during signup"
+        )
+    except Exception as exc:
+        await db.rollback()
+        logger.exception(
+            "Signup unexpected error for username=%r email=%r user_id=%r from ip=%s: %s",
+            login_data.username,
+            login_data.email,
+            new_user_id,
+            ip_address,
+            repr(exc),
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred during signup"
