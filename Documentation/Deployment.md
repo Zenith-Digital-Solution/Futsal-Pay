@@ -42,20 +42,17 @@ Navigate to **Settings → Secrets and variables → Actions** and add:
 | `DO_HOST` | Server IP address |
 | `DO_USERNAME` | SSH username (e.g., `deploy`) |
 | `DO_SSH_PRIVATE_KEY` | Private SSH key for server access |
-| `BACKEND_ENV` | Full contents of backend `.env` |
-| `FRONTEND_ENV` | Full contents of frontend `.env.local` |
+| `DEPLOY_ENV` | Full contents of `publish/.env` used by the canonical deployment compose file |
 
 ---
 
-## 3. Docker Compose (`backend/docker-compose.yml`)
+## 3. Docker Compose (`publish/docker-compose.yaml`)
 
 ```yaml
-version: "3.9"
 services:
-  db:
+  postgres:
     image: postgres:16-alpine
     restart: always
-    env_file: .env
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
@@ -63,34 +60,39 @@ services:
     image: redis:7-alpine
     restart: always
 
-  api:
-    build: .
+  backend:
+    build: ../backend
     restart: always
-    env_file: .env
     ports:
       - "8000:8000"
     depends_on:
-      - db
+      - postgres
       - redis
     command: uvicorn src.main:app --host 0.0.0.0 --port 8000
 
-  celery-worker:
-    build: .
+  celery:
+    build: ../backend
     restart: always
-    env_file: .env
     depends_on:
       - redis
-      - db
+      - postgres
     command: celery -A src.apps.core.celery_app worker --loglevel=info --concurrency=4
 
   celery-beat:
-    build: .
+    build: ../backend
     restart: always
-    env_file: .env
     depends_on:
       - redis
-      - db
+      - postgres
     command: celery -A src.apps.core.celery_app beat --loglevel=info
+
+  frontend:
+    build: ../frontend
+    restart: always
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
 
 volumes:
   postgres_data:
@@ -104,8 +106,8 @@ The workflow at `.github/workflows/ci-cd.yaml` runs on every push to `main`:
 
 1. **Build & lint** — type check, import verification
 2. **SSH deploy** — copy new files to server
-3. **Migrate** — `docker compose exec api alembic upgrade head`
-4. **Restart** — `docker compose up -d --build`
+3. **Migrate** — `docker compose -f publish/docker-compose.yaml --env-file publish/.env exec backend alembic upgrade head`
+4. **Restart** — `docker compose -f publish/docker-compose.yaml --env-file publish/.env up -d --build`
 
 ### Sample Workflow
 
@@ -124,8 +126,8 @@ jobs:
 
       - name: Write env files
         run: |
-          echo "${{ secrets.BACKEND_ENV }}" > backend/.env
-          echo "${{ secrets.FRONTEND_ENV }}" > frontend/.env.local
+          cp publish/.env.example publish/.env
+          echo "${{ secrets.DEPLOY_ENV }}" > publish/.env
 
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1
@@ -136,8 +138,8 @@ jobs:
           script: |
             cd ~/futsalapp
             git pull origin main
-            docker compose up -d --build
-            docker compose exec api alembic upgrade head
+            docker compose -f publish/docker-compose.yaml --env-file publish/.env up -d --build
+            docker compose -f publish/docker-compose.yaml --env-file publish/.env exec backend alembic upgrade head
 ```
 
 ---
@@ -200,7 +202,7 @@ Key variables to set in `.env` for production:
 ```env
 DEBUG=False
 SECRET_KEY=<random 64-char string>
-DATABASE_URL=postgresql+asyncpg://user:pass@db:5432/futsalapp
+DATABASE_URL=postgresql+asyncpg://user:pass@postgres:5432/futsalapp
 REDIS_URL=redis://redis:6379/0
 ALLOWED_HOSTS=yourdomain.com,api.yourdomain.com
 
@@ -226,10 +228,10 @@ EMAIL_HOST_PASSWORD=<sendgrid api key>
 ```bash
 # On the server
 git clone https://github.com/your-username/Futsal.git ~/futsalapp
-cd ~/futsalapp/backend
-cp .env.example .env && nano .env   # fill in production values
-docker compose up -d --build
-docker compose exec api alembic upgrade head
+cd ~/futsalapp
+cp publish/.env.example publish/.env && nano publish/.env
+docker compose -f publish/docker-compose.yaml --env-file publish/.env up -d --build
+docker compose -f publish/docker-compose.yaml --env-file publish/.env exec backend alembic upgrade head
 ```
 
 ---
@@ -238,46 +240,28 @@ docker compose exec api alembic upgrade head
 
 ```bash
 # View all service logs
-docker compose logs -f
+docker compose -f publish/docker-compose.yaml --env-file publish/.env logs -f
 
 # View specific service
-docker compose logs -f api
-docker compose logs -f celery-worker
+docker compose -f publish/docker-compose.yaml --env-file publish/.env logs -f backend
+docker compose -f publish/docker-compose.yaml --env-file publish/.env logs -f celery
 
 # Restart a single service
-docker compose restart api
+docker compose -f publish/docker-compose.yaml --env-file publish/.env restart backend
 
 # Check running containers
-docker compose ps
+docker compose -f publish/docker-compose.yaml --env-file publish/.env ps
 
 # Shell into the API container
-docker compose exec api bash
+docker compose -f publish/docker-compose.yaml --env-file publish/.env exec backend bash
 ```
 
 **Common issues:**
 
 | Problem | Fix |
 |---------|-----|
-| `alembic upgrade head` fails | Check `DATABASE_URL` in `.env`; ensure `db` container is healthy |
+| `alembic upgrade head` fails | Check `DATABASE_URL` in `publish/.env`; ensure `postgres` is healthy |
 | Celery tasks not running | Verify `REDIS_URL`; check `celery-beat` container logs |
-| 502 Bad Gateway | Nginx config pointing to wrong port; check `docker compose ps` |
+| 502 Bad Gateway | Nginx config pointing to wrong port; check the publish compose service ports |
 | `subscription_required` errors | Owner needs active subscription; check `owner_subscriptions` table |
 | Payout job not running | Check `celery-beat` logs at 00:00 UTC; verify `PAYOUT_MODE` |
-
-
-To deploy the application manually, you can follow these steps:
-
-1.  **Generate the Docker Compose file:**
-
-    ```bash
-    cd FutsalApi/FutsalApi.AppHost
-    aspirate generate --output-format compose --output-path ../../publish
-    ```
-
-2.  **Copy the `docker-compose.yml` file to your server.**
-
-3.  **SSH into your server and run the following command:**
-
-    ```bash
-    docker-compose up -d
-    ```

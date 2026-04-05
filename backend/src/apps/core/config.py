@@ -1,8 +1,22 @@
+import os
 from typing import List, Union
 from pydantic import SecretStr, field_validator, ValidationInfo
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+def _should_load_env_file() -> str | None:
+    """Avoid test bootstrap depending on a developer-local .env file."""
+    if os.getenv("TESTING", "").lower() in {"1", "true", "yes", "on"}:
+        return None
+    return ".env"
+
+
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        case_sensitive=True,
+        env_file=_should_load_env_file(),
+        extra="ignore",
+    )
+
     PROJECT_NAME: str = "FastAPI Template"
     API_V1_STR: str = "/api/v1"
     SECRET_KEY: str = "supersecretkey"
@@ -247,11 +261,6 @@ class Settings(BaseSettings):
     FACEBOOK_CLIENT_SECRET: str = ""
     # URL to redirect user to after successful social login (frontend URL)
     SOCIAL_AUTH_REDIRECT_URL: str = "http://localhost:3000/auth/callback"
-
-    class Config:
-        case_sensitive = True
-        env_file = ".env"
-        extra = "ignore"
 
 settings = Settings()
 

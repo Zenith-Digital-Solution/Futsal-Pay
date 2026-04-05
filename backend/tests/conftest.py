@@ -1,16 +1,24 @@
-import pytest
 import os
 from typing import AsyncGenerator
 from unittest.mock import AsyncMock, patch
+
+import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.pool import NullPool
 from sqlmodel import SQLModel
 
-from src.main import app
+# Set deterministic test-safe environment before importing application modules.
+os.environ["TESTING"] = "true"
+os.environ["DEBUG"] = "true"
+os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
+os.environ.setdefault("SYNC_DATABASE_URL", "sqlite:///:memory:")
+os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
+os.environ["FCM_ENABLED"] = "false"
+os.environ["POSTHOG_ENABLED"] = "false"
+os.environ["EMAIL_ENABLED"] = "false"
 
-# Set TESTING before anything else imports settings
-os.environ["TESTING"] = "True"
+from src.main import app
 
 # ---------------------------------------------------------------------------
 # Test database URL
@@ -114,4 +122,3 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
         limiter_obj.enabled = was_enabled
 
     app.dependency_overrides.clear()
-

@@ -149,11 +149,11 @@ Or use the `/api/v1/auth/signup/` endpoint then update the user row in the datab
 ## 5. Running with Docker Compose (Recommended)
 
 ```bash
-cd backend
-docker compose up --build
+cp publish/.env.example publish/.env
+docker compose -f publish/docker-compose.yaml --env-file publish/.env up --build
 ```
 
-This starts PostgreSQL, Redis, Celery worker, Celery Beat, and the FastAPI app together. See [Deployment](./Deployment.md) for the full production guide.
+This starts PostgreSQL, Redis, the FastAPI app, Celery worker, Celery Beat, and the Next.js frontend from the single canonical compose file in `publish/`. See [Deployment](./Deployment.md) for the full production guide.
 
 ---
 
@@ -194,4 +194,3 @@ ruff format src/
 # Type check frontend
 cd frontend && npx tsc --noEmit
 ```
-

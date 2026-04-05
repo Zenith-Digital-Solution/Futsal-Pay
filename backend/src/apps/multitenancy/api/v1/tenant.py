@@ -40,6 +40,12 @@ _INVITATION_TTL_HOURS = 48
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
+def _as_utc(value: datetime) -> datetime:
+    """Normalize DB-returned datetimes so SQLite naive values compare safely."""
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
 async def _get_tenant_or_404(tenant_id: int, db: AsyncSession) -> Tenant:
     tenant = await db.get(Tenant, tenant_id)
     if not tenant:
@@ -424,7 +430,7 @@ async def accept_invitation(
             detail=f"Invitation is {invitation.status}",
         )
 
-    if invitation.expires_at < datetime.now(timezone.utc):
+    if _as_utc(invitation.expires_at) < datetime.now(timezone.utc):
         invitation.status = InvitationStatus.EXPIRED
         await db.commit()
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invitation has expired")
