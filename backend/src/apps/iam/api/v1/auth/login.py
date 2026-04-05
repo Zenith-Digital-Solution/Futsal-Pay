@@ -1,8 +1,10 @@
 from datetime import timedelta, datetime, timezone
 from typing import Any
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlmodel import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import SQLAlchemyError
 from jose import jwt
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -22,6 +24,40 @@ from src.apps.core.analytics import analytics
 
 router = APIRouter()
 limiter = Limiter(key_func=get_remote_address)
+logger = logging.getLogger(__name__)
+
+
+async def _record_login_attempt(
+    db: AsyncSession,
+    *,
+    user_id: int | None,
+    ip_address: str,
+    user_agent: str,
+    success: bool,
+    failure_reason: str,
+) -> None:
+    """Persist a login-attempt audit row without leaving the session poisoned."""
+    try:
+        db.add(
+            LoginAttempt(
+                user_id=user_id,
+                ip_address=ip_address,
+                user_agent=user_agent,
+                success=success,
+                failure_reason=failure_reason,
+            )
+        )
+        await db.commit()
+    except SQLAlchemyError:
+        await db.rollback()
+        logger.exception(
+            "Failed to persist login attempt",
+            extra={
+                "user_id": user_id,
+                "ip_address": ip_address,
+                "success": success,
+            },
+        )
 
 
 @router.post("/login/")
@@ -47,15 +83,14 @@ async def login_access_token(
         user = result.scalars().first()
 
         if not user:
-            login_attempt = LoginAttempt(
+            await _record_login_attempt(
+                db,
                 user_id=None,
                 ip_address=ip_address,
                 user_agent=user_agent,
                 success=False,
-                failure_reason="User not found"
+                failure_reason="User not found",
             )
-            db.add(login_attempt)
-            await db.commit()
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Incorrect username or password"
@@ -68,30 +103,28 @@ async def login_access_token(
             )
         
         if not security.verify_password(login_data.password, user.hashed_password):
-            login_attempt = LoginAttempt(
+            await _record_login_attempt(
+                db,
                 user_id=user.id,
                 ip_address=ip_address,
                 user_agent=user_agent,
                 success=False,
-                failure_reason="Incorrect password"
+                failure_reason="Incorrect password",
             )
-            db.add(login_attempt)
-            await db.commit()
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Incorrect username or password"
             )
         
         if not user.is_active:
-            login_attempt = LoginAttempt(
+            await _record_login_attempt(
+                db,
                 user_id=user.id,
                 ip_address=ip_address,
                 user_agent=user_agent,
                 success=False,
-                failure_reason="User account is inactive"
+                failure_reason="User account is inactive",
             )
-            db.add(login_attempt)
-            await db.commit()
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Inactive user"
@@ -107,14 +140,15 @@ async def login_access_token(
             }
         
         # Successful login
-        login_attempt = LoginAttempt(
-            user_id=user.id,
-            ip_address=ip_address,
-            user_agent=user_agent,
-            success=True,
-            failure_reason=""
+        db.add(
+            LoginAttempt(
+                user_id=user.id,
+                ip_address=ip_address,
+                user_agent=user_agent,
+                success=True,
+                failure_reason="",
+            )
         )
-        db.add(login_attempt)
         
         access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
         access_token = security.create_access_token(
@@ -185,15 +219,15 @@ async def login_access_token(
     except HTTPException:
         raise
     except Exception as ex:
-        login_attempt = LoginAttempt(
+        await db.rollback()
+        await _record_login_attempt(
+            db,
             user_id=user.id if user else None,
             ip_address=ip_address,
             user_agent=user_agent,
             success=False,
-            failure_reason=f"Server error: {str(ex)}"
+            failure_reason=f"Server error: {str(ex)}",
         )
-        db.add(login_attempt)
-        await db.commit()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred during login"

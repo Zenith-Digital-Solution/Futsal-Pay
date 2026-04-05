@@ -1,8 +1,10 @@
 import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import select
 
 from src.apps.core import security
+from src.apps.iam.models.login_attempt import LoginAttempt
 from tests.factories import UserFactory
 
 
@@ -78,6 +80,29 @@ class TestLogin:
         
         assert response.status_code == 400
         assert "Incorrect username or password" in response.json()["detail"]
+
+    @pytest.mark.asyncio
+    async def test_login_nonexistent_user_tracks_attempt_without_user_id(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+    ):
+        """Failed lookups should be tracked without breaking the DB session."""
+        response = await client.post(
+            "/api/v1/auth/login/?set_cookie=false",
+            json={"username": "missing-user", "password": "TestPass123"},
+        )
+
+        assert response.status_code == 400
+
+        result = await db_session.execute(
+            select(LoginAttempt).where(LoginAttempt.failure_reason == "User not found")
+        )
+        attempt = result.scalars().first()
+
+        assert attempt is not None
+        assert attempt.user_id is None
+        assert attempt.success is False
     
     @pytest.mark.asyncio
     async def test_login_inactive_user(self, client: AsyncClient, db_session: AsyncSession):

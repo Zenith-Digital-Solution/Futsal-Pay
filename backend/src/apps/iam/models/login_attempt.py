@@ -40,7 +40,10 @@ class LoginAttempt(BaseLoginAttempt, table=True):
         description="Unique identifier for the login attempt"
     )
     user_id: Optional[int] = Field(
+        default=None,
         foreign_key="user.id",
+        nullable=True,
+        index=True,
         ondelete="CASCADE",
         description="ID of the user associated with the login attempt"
     )
