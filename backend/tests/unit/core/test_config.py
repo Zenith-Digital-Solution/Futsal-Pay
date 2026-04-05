@@ -1,5 +1,5 @@
 import pytest
-from src.apps.core.config import Settings, settings
+from src.apps.core.config import Settings, _should_load_env_file, load_settings_from_db, settings
 
 
 class TestSettings:
@@ -67,3 +67,89 @@ class TestSettings:
     def test_debug_mode(self):
         """Test debug mode setting."""
         assert isinstance(settings.DEBUG, bool)
+
+    def test_should_load_env_file_disabled_in_testing(self, monkeypatch: pytest.MonkeyPatch):
+        monkeypatch.setenv("TESTING", "true")
+        assert _should_load_env_file() is None
+
+    def test_should_load_env_file_defaults_to_dotenv(self, monkeypatch: pytest.MonkeyPatch):
+        monkeypatch.delenv("TESTING", raising=False)
+        assert _should_load_env_file() == ".env"
+
+    def test_builds_redis_and_celery_urls_without_password(self):
+        configured = Settings(
+            _env_file=None,
+            REDIS_URL=None,
+            CELERY_BROKER_URL=None,
+            CELERY_RESULT_BACKEND=None,
+            DEBUG=False,
+        )
+        assert configured.REDIS_URL.startswith("redis://")
+        assert configured.CELERY_BROKER_URL.startswith("redis://")
+        assert configured.CELERY_RESULT_BACKEND.startswith("redis://")
+
+    def test_invalid_cors_origin_format_raises(self):
+        with pytest.raises(ValueError):
+            Settings(_env_file=None, BACKEND_CORS_ORIGINS=123)  # type: ignore[arg-type]
+
+    def test_invalid_allowed_hosts_format_raises(self):
+        with pytest.raises(ValueError):
+            Settings(_env_file=None, ALLOWED_HOSTS=123)  # type: ignore[arg-type]
+
+    @pytest.mark.asyncio
+    async def test_load_settings_from_db_updates_known_fields(self, monkeypatch: pytest.MonkeyPatch):
+        class FakeResult:
+            def fetchall(self):
+                return [
+                    ("DEBUG", "false"),
+                    ("ACCESS_TOKEN_EXPIRE_MINUTES", "99"),
+                    ("POSTHOG_HOST", "https://example.com"),
+                    ("UNKNOWN_FIELD", "ignored"),
+                ]
+
+        class FakeSession:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
+
+            async def execute(self, _query):
+                return FakeResult()
+
+        monkeypatch.setattr(
+            "src.db.session.async_session_factory",
+            lambda: FakeSession(),
+        )
+
+        original_debug = settings.DEBUG
+        original_expiry = settings.ACCESS_TOKEN_EXPIRE_MINUTES
+        original_posthog_host = settings.POSTHOG_HOST
+        try:
+            await load_settings_from_db()
+            assert settings.DEBUG is False
+            assert settings.ACCESS_TOKEN_EXPIRE_MINUTES == 99
+            assert settings.POSTHOG_HOST == "https://example.com"
+        finally:
+            object.__setattr__(settings, "DEBUG", original_debug)
+            object.__setattr__(settings, "ACCESS_TOKEN_EXPIRE_MINUTES", original_expiry)
+            object.__setattr__(settings, "POSTHOG_HOST", original_posthog_host)
+
+    @pytest.mark.asyncio
+    async def test_load_settings_from_db_handles_missing_table(self, monkeypatch: pytest.MonkeyPatch):
+        class FakeSession:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
+
+            async def execute(self, _query):
+                raise RuntimeError("missing table")
+
+        monkeypatch.setattr(
+            "src.db.session.async_session_factory",
+            lambda: FakeSession(),
+        )
+
+        await load_settings_from_db()

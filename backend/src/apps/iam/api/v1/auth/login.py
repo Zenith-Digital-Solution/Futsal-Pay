@@ -75,12 +75,14 @@ async def login_access_token(
     ip_address = get_client_ip(request)
     user_agent = request.headers.get("user-agent", "unknown")
     user = None
+    user_id: int | None = None
     
     try:
         result = await db.execute(
             select(User).where(User.username == login_data.username)
         )
         user = result.scalars().first()
+        user_id = user.id if user else None
 
         if not user:
             await _record_login_attempt(
@@ -222,7 +224,7 @@ async def login_access_token(
         await db.rollback()
         await _record_login_attempt(
             db,
-            user_id=user.id if user else None,
+            user_id=user_id,
             ip_address=ip_address,
             user_agent=user_agent,
             success=False,

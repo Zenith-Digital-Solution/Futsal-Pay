@@ -155,6 +155,14 @@ docker compose -f publish/docker-compose.yaml --env-file publish/.env up --build
 
 This starts PostgreSQL, Redis, the FastAPI app, Celery worker, Celery Beat, and the Next.js frontend from the single canonical compose file in `publish/`. See [Deployment](./Deployment.md) for the full production guide.
 
+`pgadmin` is available too, but it is behind the Docker Compose `tools` profile, so it will not start with the default command above.
+
+```bash
+docker compose -f publish/docker-compose.yaml --env-file publish/.env --profile tools up -d pgadmin
+```
+
+Default `pgadmin` URL: `http://localhost:8081`
+
 ---
 
 ## 6. Environment Variables Reference

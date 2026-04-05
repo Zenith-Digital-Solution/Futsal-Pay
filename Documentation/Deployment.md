@@ -94,9 +94,42 @@ services:
     depends_on:
       - backend
 
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    restart: unless-stopped
+    profiles: ["tools"]
+    ports:
+      - "8081:80"
+
 volumes:
   postgres_data:
 ```
+
+`pgadmin` is optional and does not start with a plain `docker compose up -d` because it is behind the `tools` profile.
+
+Start the main app stack:
+
+```bash
+docker compose -f publish/docker-compose.yaml --env-file publish/.env up -d --build
+```
+
+Start `pgadmin` as well:
+
+```bash
+docker compose -f publish/docker-compose.yaml --env-file publish/.env --profile tools up -d pgadmin
+```
+
+Or start everything including `pgadmin` in one command:
+
+```bash
+docker compose -f publish/docker-compose.yaml --env-file publish/.env --profile tools up -d --build
+```
+
+Default `pgadmin` URL and credentials:
+
+- URL: `http://localhost:8081`
+- Email: `admin@futsal.com`
+- Password: `admin`
 
 ---
 
@@ -232,6 +265,9 @@ cd ~/futsalapp
 cp publish/.env.example publish/.env && nano publish/.env
 docker compose -f publish/docker-compose.yaml --env-file publish/.env up -d --build
 docker compose -f publish/docker-compose.yaml --env-file publish/.env exec backend alembic upgrade head
+
+# Optional: start pgAdmin (service uses the "tools" profile)
+docker compose -f publish/docker-compose.yaml --env-file publish/.env --profile tools up -d pgadmin
 ```
 
 ---

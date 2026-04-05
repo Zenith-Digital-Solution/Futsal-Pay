@@ -92,6 +92,12 @@ class TestAccessToken:
         with pytest.raises(JWTError):
             security.verify_token(token, token_type=TokenType.REFRESH)
 
+    def test_verify_token_without_type_requirement(self):
+        """Token verification should work without enforcing a token type."""
+        token = security.create_access_token(321)
+        payload = security.verify_token(token)
+        assert payload["sub"] == "321"
+
 
 class TestRefreshToken:
     """Test refresh token creation and verification."""
@@ -221,3 +227,21 @@ class TestSecureUrlToken:
         token = security.create_secure_url_token(data)
         verified = security.verify_secure_url_token(token)
         assert verified == data
+
+    def test_verify_invalid_secure_url_token(self):
+        """Invalid base64 data should raise JWTError."""
+        with pytest.raises(JWTError):
+            security.verify_secure_url_token("not-valid-base64")
+
+
+class TestOAuthState:
+    def test_create_and_verify_oauth_state(self):
+        state = security.create_oauth_state("google")
+        assert security.verify_oauth_state(state, "google") is True
+
+    def test_verify_oauth_state_wrong_provider(self):
+        state = security.create_oauth_state("google")
+        assert security.verify_oauth_state(state, "github") is False
+
+    def test_verify_oauth_state_invalid_token(self):
+        assert security.verify_oauth_state("not-a-token", "google") is False
