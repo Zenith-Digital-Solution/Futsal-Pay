@@ -7,7 +7,6 @@ const API_BASE = API_URL.replace(/\/api\/v1$/, '');
 const nextConfig: NextConfig = {
   // produce a standalone build output used by the Docker runtime
   output: 'standalone',
-  reactCompiler: true,
   async rewrites() {
     return [
       {

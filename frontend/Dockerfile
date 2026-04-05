@@ -4,7 +4,8 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
-RUN npm ci
+ENV NPM_CONFIG_UPDATE_NOTIFIER=false
+RUN npm ci --no-audit --no-fund
 
 # Stage 2: Builder
 FROM node:20-alpine AS builder
@@ -18,6 +19,7 @@ ARG NEXT_PUBLIC_GOOGLE_ENABLED=false
 ARG NEXT_PUBLIC_GITHUB_ENABLED=false
 ARG NEXT_PUBLIC_FACEBOOK_ENABLED=false
 ARG NEXT_PUBLIC_MAPBOX_TOKEN=
+ARG NODE_BUILD_HEAP_MB=1536
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -33,9 +35,8 @@ ENV NEXT_PUBLIC_GITHUB_ENABLED=$NEXT_PUBLIC_GITHUB_ENABLED
 ENV NEXT_PUBLIC_FACEBOOK_ENABLED=$NEXT_PUBLIC_FACEBOOK_ENABLED
 ENV NEXT_PUBLIC_MAPBOX_TOKEN=$NEXT_PUBLIC_MAPBOX_TOKEN
 
-# 🚀 Memory optimisation: limit Node heap to 2GB and disable Turbopack (use webpack)
-ENV NODE_OPTIONS="--max-old-space-size=2048"
-ENV NEXT_TURBOPACK_BUILD=0
+# Use the stable webpack production build path and keep heap sizing tunable
+ENV NODE_OPTIONS="--max-old-space-size=${NODE_BUILD_HEAP_MB}"
 
 RUN npm run build
 

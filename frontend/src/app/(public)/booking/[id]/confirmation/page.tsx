@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect } from 'react';
+import { use, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
@@ -76,17 +76,18 @@ const STATUS_CONFIG = {
 
 type BookingWithGround = Booking & { ground_name?: string; ground_location?: string };
 
-export default function BookingConfirmationPage({ params }: { params: { id: string } }) {
+export default function BookingConfirmationPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
   const { track } = useAnalytics();
   const trackedRef = useRef(false);
 
   const { data: booking, isLoading, isError } = useQuery({
-    queryKey: ['booking', params.id],
+    queryKey: ['booking', id],
     queryFn: async () => {
-      const { data } = await apiClient.get<BookingWithGround>(`/futsal/bookings/${params.id}`);
+      const { data } = await apiClient.get<BookingWithGround>(`/futsal/bookings/${id}`);
       return data;
     },
-    enabled: !!params.id,
+    enabled: !!id,
   });
 
   // Fire analytics once when booking data loads with confirmed status
